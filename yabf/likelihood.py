@@ -428,6 +428,10 @@ class LikelihoodContainer(Likelihood):
     def __init__(self, likelihoods, **kwargs):
         super().__init__(**kwargs)
 
+        # Change the name
+        if "name" not in kwargs:
+            self.name = " ".join([lk.name for lk in likelihoods])
+
         self.likelihoods = likelihoods
         if not hasattr(likelihoods, "__len__") or len(likelihoods) < 1:
             raise ValueError("likelihoods should be a list of at least one likelihood")
