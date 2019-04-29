@@ -160,6 +160,7 @@ def load_likelihood_from_yaml(fname):
     _import_plugins(config)
 
     # Load outer components
+    name = config.get("name", path.splitext(path.basename(fname))[0])
     components = _construct_components(fname, config)
     derived = _construct_derived(fname, config)
     fiducial = _construct_fiducial(fname, config)
@@ -169,11 +170,14 @@ def load_likelihood_from_yaml(fname):
     if any([len(components), len(derived), len(fiducial), len(params)]) or len(likelihoods) > 1:
         # If any of the external components are non-empty, we need to build a container
         return LikelihoodContainer(
-            components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
+            name=name, components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
         )
     else:
         # Otherwise just return the only likelihood, which is self-contained.
-        return likelihoods[0]
+        lk = likelihoods[0]
+        if lk.name == lk.__class__.__name__:
+            lk.name = path.splitext(path.basename(fname))[0]
+        return lk
 
 
 def load_sampler_from_yaml(fname):

@@ -106,6 +106,10 @@ class emcee(Sampler):
 class polychord(Sampler):
     # A really bad hack!
 
+    @property
+    def file_root(self):
+        return self.sampler_kwargs.pop("file_root", self.likelihood.name)
+
     @staticmethod
     def _flat_array(elements):
         lst = []
@@ -159,7 +163,7 @@ class polychord(Sampler):
         mcsamples.make_paramnames_files(paramnames)
 
     def _get_sampler(self, **kwargs):
-        return PolyChordSettings(self.nparams, self.nderived, **kwargs)
+        return PolyChordSettings(self.nparams, self.nderived, file_root=self.file_root, **kwargs)
 
     def _get_sampling_fn(self, sampler):
         return ppc.run_polychord
