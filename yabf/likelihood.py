@@ -5,10 +5,11 @@ import warnings
 from collections import OrderedDict
 from copy import copy
 
-from .parameters import Param, _ActiveParameter
-
 import numpy as np
 from cached_property import cached_property
+from .plugin import plugin_mount_factory
+
+from .parameters import Param, _ActiveParameter
 
 
 def _only_active(func):
@@ -16,6 +17,7 @@ def _only_active(func):
         if not self.in_active_mode:
             raise AttributeError("{} is not available when not in active mode.")
         return func(self, *args, **kwargs)
+
     return func_wrapper
 
 
@@ -23,7 +25,7 @@ class ParameterComponent:
     """
     A base class for named components and likelihoods that take parameters.
     """
-    all_parameters = []
+    parameters = []
 
     def __init__(self, name=None, params=None, fiducial=None, derived=None):
         self.name = name or self.__class__.__name__
@@ -59,7 +61,7 @@ class ParameterComponent:
         All possible parameters of this specific component or likelihood,
         not just those that are being constrained.
         """
-        return {p.name: p for p in self.parameter_list}
+        return {p.name: p for p in self.parameters}
 
     @cached_property
     def active_params(self):
@@ -82,18 +84,77 @@ class ParameterComponent:
 
         return dct
 
+    @_only_active
+    def generate_refs(self, n=1, squeeze=False, full=False, params=None):
+        """
+        Generate reference values for active parameters from their priors.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of reference values to choose for each parameter.
+        squeeze : bool, optional
+            If ``n=1``, ``squeeze`` will ensure that the returned results
+            are one-dimensional.
+        full : bool, optional
+            Whether to return values for _all_ parameters, even those not
+            active. If so, the returned object is a dict (as the parameters
+            are not ordered).
+        params : list, optional
+            The parameters to include in the generated refs. Default is to
+            include all (active) parameters.
+
+        Returns
+        -------
+        list, list-of-lists, dict or dict-of-lists :
+            If `full` is False, returns a list. If `n=1` and `squeeze` is True,
+            this is a list of parameter values (by default, active parameters).
+            Otherwise, it is a list of lists, where each sub-list contains n
+            values of the parameter. If `full` is True, returns a dict, where
+            each key is the name of a parameter.
+        """
+        if params is None:
+            params = self.active_params.keys()
+
+        if full:
+            refs = {}
+        else:
+            refs = []
+
+        for param in params:
+            if param in self.active_params:
+                ref = self.active_params[param].generate_ref(n)
+            else:
+                ref = self.fiducial_params[param]
+
+            if not squeeze and n == 1:
+                ref = [ref]
+
+            if full:
+                refs[param] = ref
+            else:
+                refs.append(ref)
+
+        if full:
+            for param in self.all_parameter_dct:
+                if param not in refs:
+                    refs[param] = [self.fiducial_params[param]] * n
+                    if squeeze and n == 1:
+                        refs[param] = refs[param][0]
+
+        return refs
+
     def _fill_params(self, params):
         fiducial = copy(self.fiducial_params)
         fiducial.update(params)
         return fiducial
 
 
-class Component(ParameterComponent):
+class Component(ParameterComponent, metaclass=plugin_mount_factory()):
     """
     A component of a likelihood. These are mainly for re-usability, so they
     can be mixed and matched inside likelihoods.
     """
-
     def derived_quantities(self, ctx=None, **params):
         if ctx is None:
             ctx = self()
@@ -134,7 +195,7 @@ class Component(ParameterComponent):
         return self.calculate(**params)
 
 
-class Likelihood(ParameterComponent):
+class Likelihood(ParameterComponent, metaclass=plugin_mount_factory(), ):
 
     def __init__(self, name=None, params=None, fiducial=None, data=None, derived=None, components=None):
         """
@@ -163,6 +224,13 @@ class Likelihood(ParameterComponent):
                 self.data = None
         else:
             self.data = data
+
+    def mock(self, model=None, ctx=None, **params):
+        """
+        Create mock data at given parameters.
+        """
+        model, params = self._get_model_and_params(params, model, ctx)
+        return self._mock(model, **params)
 
     @property
     def in_active_mode(self):
@@ -217,6 +285,8 @@ class Likelihood(ParameterComponent):
         for cmp in self.components:
             prior += np.sum([p.logprior(params[cmp.name][k]) for k, p in cmp.active_params.items()])
 
+        return prior
+
     def get_ctx(self, **params):
         params = self._fill_params(params)
 
@@ -262,8 +332,8 @@ class Likelihood(ParameterComponent):
                     params[cmp.name][param] = params[param]
 
         # Now remove global parameters
-        for param in params:
-            if type(param) is not dict and param not in self.all_parameter_dct:
+        for param in list(params.keys()):
+            if type(params[param]) is not dict and param not in self.all_parameter_dct:
                 del params[param]
 
         return params
@@ -285,6 +355,9 @@ class Likelihood(ParameterComponent):
             raise ValueError("length of parameter list not compatible with active"
                              " parameters. Please don't call _parameter_list_to_dict yourself!")
 
+        if type(p) is np.ndarray:
+            p = list(p)
+
         dct = {param: p.pop(0) for param in self.active_params}
 
         for cmp in self.components:
@@ -294,19 +367,26 @@ class Likelihood(ParameterComponent):
 
     @cached_property
     def flat_active_params(self):
-        result = [(self, p) for p in self.active_params]
+        result = OrderedDict([(p, dict(parent=self.name, param=v)) for p, v in self.active_params.items()])
 
         for cmp in self.components:
-            result += [(cmp, p) for p in cmp.active_params]
+            result.update([(p, dict(parent=cmp.name, param=v)) for p, v in cmp.active_params.items()])
 
         return result
 
-    def logl(self, model=None, **params):
+    def _get_model_and_params(self, params, model=None, ctx=None):
         params = self._fill_params(params)
 
-        if model is None:
-            model = self.model(self.get_ctx(**params), **params)
+        if ctx is None:
+            ctx = self.get_ctx(**params)
 
+        if model is None:
+            model = self.model(ctx, **params)
+
+        return model, params
+
+    def logl(self, model=None, ctx = None, **params):
+        model, params = self._get_model_and_params(params, model, ctx)
         return self.lnl(model, **params)
 
     def logp(self, model=None, **params):
@@ -324,41 +404,63 @@ class Likelihood(ParameterComponent):
 
         return self.logp(model, **params), self.derived_quantities(model, ctx, **params)
 
+    @_only_active
+    def generate_refs(self, n=1, squeeze=False, full=False, params=None):
+        refs = super().generate_refs()
 
-class LikelihoodContainer:
-    def __init__(self, likelihoods, components=None, params=None, derived=None):
+        for cmp in self.components:
+            if params is not None:
+                thisparams = [p for p in params if p in cmp.all_parameter_dct]
+            else:
+                thisparams = None
+
+            ref = cmp.generate_refs(n=n, squeeze=squeeze, full=full, params=thisparams)
+
+            if full:
+                refs.update(ref)
+            else:
+                refs += ref
+
+        return refs
+
+
+class LikelihoodContainer(Likelihood):
+    def __init__(self, likelihoods, **kwargs):
+        super().__init__(**kwargs)
 
         self.likelihoods = likelihoods
-        if getattr(likelihoods, "__len__", 0) < 1:
+        if not hasattr(likelihoods, "__len__") or len(likelihoods) < 1:
             raise ValueError("likelihoods should be a list of at least one likelihood")
 
         for lk in likelihoods:
             assert isinstance(lk, Likelihood)
-            lk._in_active_mode = True # ensure everything is in active mode.
+            lk._in_active_mode = True  # ensure everything is in active mode.
 
-        self.components = components or []
         for cmp in self.components:
             assert isinstance(cmp, Component)
 
             for lk in self.likelihoods:
                 assert cmp.name not in lk.components, "Do not use the same component both globally and in a likelihood!"
 
-        self.global_params = params or []
-        for prm in self.global_params:
-            assert isinstance(prm, Param)
-
-        self.derived = derived or []
         for d in self.derived:
             assert callable(d)
+
+    def validate_derived(self):
+        for d in self.derived:
+            assert callable(d), f"{d} is not a valid derived parameter"
+
+    @cached_property
+    def all_parameter_dct(self):
+        raise AttributeError("LikelihoodContainer has no parameters of its own.")
 
     def _parameter_list_to_dict(self, p):
         """
         This defines the order in which the parameters should arrive
         """
-        dct = {param: p.pop(0) for param in self.global_params}
+        if type(p) is np.ndarray:
+            p = list(p)
 
-        for cmp in self.components:
-            dct[cmp.name] = {param: p.pop(0) for param in cmp.active_params}
+        dct = super()._parameter_list_to_dict(p)
 
         for lk in self.likelihoods:
             dct[lk.name] = lk._parameter_list_to_dct(p)
@@ -374,9 +476,7 @@ class LikelihoodContainer:
               are treated separately. To get that information, one must
               traverse the tree of likelihoods and components' active_params.
         """
-        p = set(self.active_params.keys())
-        for cmp in self.components:
-            p.update(set(cmp.active_params.keys()))
+        p = super().all_active_params
 
         for lk in self.likelihoods:
             p.update(lk.all_active_params)
@@ -394,19 +494,12 @@ class LikelihoodContainer:
 
     @cached_property
     def flat_active_params(self):
-        result = [(self, p) for p in self.active_params]
-
-        for cmp in self.components:
-            result += [(cmp, p) for p in cmp.active_params]
+        result = super().flat_active_params
 
         for lk in self.likelihoods:
-            result += lk.flat_active_params
+            result.update(lk.flat_active_params)
 
         return result
-
-    @cached_property
-    def total_active_params(self):
-        return len(self.flat_active_params)
 
     def _fill_params(self, params):
         # Note: this function does _not_ depend on the active parameters of
@@ -418,15 +511,6 @@ class LikelihoodContainer:
 
         # This fills up the dict with this likelihood's parameters
         params = super()._fill_params(params)
-
-        # Now do all the components
-        for cmp in self.components:
-            params[cmp.name] = cmp._fill_params(params.get(cmp.name, {}))
-
-            # Overwrite global parameters
-            for param in params[cmp.name]:
-                if param in params:
-                    params[cmp.name][param] = params[param]
 
         # Now do all the likelihoods
         for lk in self.likelihoods:
@@ -465,11 +549,6 @@ class LikelihoodContainer:
         for cmp in self.components:
             ctx.update(cmp(**params[cmp.name]))
 
-        # Don't do the likelihood context here, since it should be done
-        # individually per-likelihood before calling its model.
-        # for lk in self.likelihoods:
-        #     ctx.update(lk.get_ctx(**params[lk.name]))
-
         return ctx
 
     def get_models(self, ctx=None, **params):
@@ -506,20 +585,15 @@ class LikelihoodContainer:
 
     def logprior(self, **params):
         # This can be called in non-active mode, it will just return zero.
-        params = self._fill_params(params)
-
-        prior = np.sum([p.logprior(params[k]) for k, p in self.active_params.items()])
-
-        for cmp in self.components:
-            prior += np.sum([p.logprior(params[cmp.name][k]) for k, p in cmp.active_params.items()])
+        prior = super().logprior(**params)
 
         for lk in self.likelihoods:
             prior += lk.logprior
 
         return prior
 
-    def logp(self, models=None,**params):
-        logl = self.logl(models, **params) # this fills the params
+    def logp(self, models=None, **params):
+        logl = self.logl(models, **params)  # this fills the params
         return logl + self.logprior(**params)
 
     def derived_quantities(self, models=None, ctx=None, **params):
@@ -554,3 +628,23 @@ class LikelihoodContainer:
         models = self.get_models(ctx, **params)
 
         return self.logp(models, **params), self.derived_quantities(models, ctx, **params)
+
+    @_only_active
+    def generate_refs(self, n=1, squeeze=False, full=False, params=None):
+        refs = super().generate_refs()
+
+        for lk in self.likelihoods:
+
+            if params is not None:
+                thisparams = [p for p in params if p in lk.all_available_params]
+            else:
+                thisparams = None
+
+            ref = lk.generate_refs(n=n, squeeze=squeeze, full=full, params=thisparams)
+
+            if full:
+                refs.update(ref)
+            else:
+                refs += ref
+
+        return refs

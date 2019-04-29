@@ -1,0 +1,8 @@
+
+\.eggs/
+
+\.idea/
+
+yabf\.egg-info/
+
+yabf/__pycache__/

@@ -1,99 +1,82 @@
-import importlib
-from os import path
+"""
+Module defining data loaders for YAML files.
+"""
+import pickle
 
 import numpy as np
-import yaml
-from scipy import stats
 
-from .likelihood import Param
+from .plugin import plugin_mount_factory
 
 
-def _absfile(yml, fname):
-    if path.isabs(fname):
-        return fname
-    else:
-        return path.join(path.dirname(path.abspath(yml)), fname)
+class LoadError(ValueError):
+    pass
 
 
-def load_likelihood_from_yaml(fname, **kwargs):
-    with open(fname) as f:
-        config = yaml.load(f)
+class DataLoader(metaclass=plugin_mount_factory()):
+    def load(self, data):
+        pass
 
-    # Load data.
-    # prefer data handed to the function
-    data = kwargs.get("data", None)
 
-    if data is None:
-        data = config.get("data", None)
-        if isinstance(data, str):
-            data = np.load(_absfile(fname, data))
+class DictLoader(DataLoader):
+    def load(self, data):
+        if type(data) is not dict:
+            raise LoadError()
 
-    if data is None:
-        raise ValueError("Require data either in YAML or passed to loader")
+        return data
 
-    # Load components
-    comp = config.get("components", {})
-    components = []
 
-    for name, c in comp.items():
-        module = importlib.import_module(c['module'])
-        cls = getattr(module, name)
+class PickleLoader(DataLoader):
+    def load(self, data):
+        try:
+            with open(data, 'rb') as f:
+                data = pickle.load(f)
+            return data
+        except FileNotFoundError:
+            raise
+        except:
+            raise LoadError()
 
-        cmp_data = {}
-        for key, val in c.get("data", {}).items():
-            if isinstance(val, str):
-                if val.endswith(".npz"):
-                    cmp_data.update(dict(np.load(_absfile(fname, val))))
-                elif val.endswith(".npy"):
-                    cmp_data[key] = np.load(_absfile(fname, val))
-                else:
-                    cmp_data[key] = val
-            else:
-                cmp_data[key] = val
 
-        components.append(cls(**cmp_data))
+class npzLoader(DataLoader):
+    def load(self, data):
+        try:
+            data = dict(np.load(data))
+            return data
+        except FileNotFoundError:
+            raise
+        except:
+            raise LoadError()
 
-    # Load parameters
-    params = config.get("parameters", [])
 
-    # Add any included parameters
-    inc = params.pop("include", [])
-    for incl in inc:
-        with open(_absfile(fname, incl), 'rb') as f:
-            params.update(yaml.load(f))
+class npyLoader(DataLoader):
+    def load(self, data):
+        try:
+            data = np.load(data)
+            return data
+        except FileNotFoundError:
+            raise
+        except:
+            raise LoadError()
 
-    parameters = []
-    for pname, p in params.items():
-        # The ref value needs to be made into a scipy.stats object
-        ref = p.pop("ref", None)
-        if ref:
-            ref = getattr(stats, ref.pop('dist'))(**ref)
 
-        parameters.append(Param(pname, ref=ref, **p))
+# class HDF5Loader(DataLoader):
+#     def load(self, data):
+#         raise NotImplementedError()
 
-    # Load fiducial values
-    fiducial = config.get("fiducial", {})
 
-    # Load any other parameters
-    other = config.get("kwargs", {})
-    lk_data = {}
-    for key, val in other.items():
-        if isinstance(val, str):
-            if val.endswith(".npz"):
-                lk_data.update(dict(np.load(val)))
-            elif val.endswith(".npy"):
-                lk_data[key] = np.load(val)
-            else:
-                lk_data[key] = val
-        else:
-            lk_data[key] = val
+class CompositeLoader(DataLoader):
 
-    # Fiducial just gets munged in with other parameters
-    lk_data.update(fiducial)
+    def __init__(self, loaders=None):
+        self.loaders = loaders or DataLoader._plugins.values()
 
-    # Get the likelihood cls to put it all together
-    lk = config.get("likelihood")
-    module = importlib.import_module(lk['module'])
-    cls = getattr(module, lk['name'])
+    def load(self, data):
+        for loader in self.loaders:
+            if loader is self.__class__:
+                continue
 
-    return cls(data=data, components=components, params=parameters, **lk_data)
+            try:
+                return loader().load(data)
+            except LoadError:
+                pass
+
+        raise LoadError("None of the specified loaders were able to load the data: {}".format(data))

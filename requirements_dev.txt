@@ -7,12 +7,18 @@ cached-property==1.5.1
 certifi==2019.3.9
 cffi==1.12.3
 chardet==3.0.4
+Click==7.0
 cryptography==2.6.1
+cycler==0.10.0
 docutils==0.14
+emcee==3.0rc2
+GetDist==0.3.2
 idna==2.8
 imagesize==1.1.0
 Jinja2==2.10.1
+kiwisolver==1.1.0
 MarkupSafe==1.1.1
+matplotlib==3.0.3
 mkl-fft==1.0.10
 mkl-random==1.0.2
 more-itertools==7.0.0
@@ -27,6 +33,7 @@ pyparsing==2.4.0
 pypolychord==1.16
 PySocks==1.6.8
 pytest==4.4.1
+python-dateutil==2.8.0
 pytz==2019.1
 PyYAML==5.1
 requests==2.21.0

@@ -19,7 +19,9 @@ requirements = [
     "cached_property"
 ]
 
-setup_requirements = ['pytest-runner', ]
+setup_requirements = [
+#    'pytest-runner',
+]
 
 test_requirements = ['pytest', ]
 

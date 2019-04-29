@@ -62,11 +62,15 @@ class _ActiveParameter:
         return self.param.ref
 
     @property
+    def latex(self):
+        return self.parameter.latex
+
+    @property
     def min(self):
         return max(self.param.min, self.parameter.min)
 
     @property
-    def min(self):
+    def max(self):
         return min(self.param.max, self.parameter.max)
 
     @property
@@ -77,26 +81,28 @@ class _ActiveParameter:
     def fiducial_value(self):
         return self.param.fiducial if self.param.fiducial is not None else self.parameter.default
 
-    def generate_ref(self):
+    def generate_ref(self, n=1):
         if self.ref is None:
             # Use prior
             if self.prior is None:
-                ref = np.random.uniform(self.min, self.max)
+                ref = np.random.uniform(self.min, self.max, size=n)
             else:
                 try:
-                    ref = self.prior.rvs()
+                    ref = self.prior.rvs(size=n)
                 except AttributeError:
                     raise NotImplementedError("callable priors not yet implemented")
         else:
             try:
-                ref = self.ref.rvs()
+                ref = self.ref.rvs(size=n)
             except AttributeError:
                 try:
-                    ref = self.ref()
+                    ref = self.ref(size=n)
                 except TypeError:
-                    ref = self.ref
+                    ref = [self.ref] * n
+                    if n == 1:
+                        ref = ref[0]
 
-        if not self.min <= ref <= self.max:
+        if not np.all(np.logical_and(self.min <= ref, ref <= self.max)):
             raise ValueError(f"param {self.name} produced a reference value outside its domain.")
 
         return ref
