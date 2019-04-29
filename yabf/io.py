@@ -59,6 +59,11 @@ class npyLoader(DataLoader):
             raise LoadError()
 
 
+class ValueLoader(DataLoader):
+    def load(self, data):
+        return data
+
+
 # class HDF5Loader(DataLoader):
 #     def load(self, data):
 #         raise NotImplementedError()
