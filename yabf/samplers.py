@@ -73,6 +73,11 @@ class emcee(Sampler):
         return self.sampler_kwargs.pop("nwalkers", self.nparams * 2)
 
     def _get_sampler(self, **kwargs):
+        # This is bad, but I have to access this before passing kwargs,
+        # otherwise nwalkers is passed twice.
+        if 'nwalkers' in kwargs:
+            del kwargs['nwalkers']
+
         return EnsembleSampler(
             log_prob_fn=self.likelihood,
             ndim=self.nparams,
@@ -130,7 +135,7 @@ class polychord(Sampler):
     @cached_property
     def log_prior_volume(self):
         prior_volume = 0
-        for p in self.likelihood.active_params.values():
+        for p in self.likelihood.child_active_params:
             if np.isinf(p.min) or np.isinf(p.max):
                 raise ValueError("Polychord requires bounded priors")
             prior_volume += np.log(p.max - p.min)
@@ -139,13 +144,14 @@ class polychord(Sampler):
     @cached_property
     def prior(self):
         # Determine proper prior.
-        def prior(hypercube):
+        print("CHILD PARAMS:", [p.name for p in self.likelihood.child_active_params])
+        def pr(hypercube):
             ret = []
-            for p, h in zip(self.likelihood.flat_active_params.values(), hypercube):
-                ret.append(UniformPrior(p['param'].min, p['param'].max)(h))
+            for p, h in zip(self.likelihood.child_active_params, hypercube):
+                ret.append(UniformPrior(p.min, p.max)(h))
             return ret
 
-        return prior
+        return pr
 
     @cached_property
     def posterior(self):
