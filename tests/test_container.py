@@ -111,4 +111,6 @@ def test_two_lk_sharing_a_param():
         )
     )
 
+    print(lk.child_active_params)
+    assert lk.total_active_params == 6
     assert lk.logl() == lk.logp() == -58

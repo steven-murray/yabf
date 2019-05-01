@@ -133,7 +133,7 @@ class ParameterComponent:
         """Set of all active parameters in this likelihood/component and its sub-components"""
         p = set(self.active_params)
         for cmp in self._subcomponents:
-            p.update(set(cmp.active_params))
+            p.update(cmp.child_active_params)
         return p
 
     def _get_subloc(self, name):
@@ -173,7 +173,7 @@ class ParameterComponent:
 
     @cached_property
     def total_active_params(self):
-        return len(self.flat_active_params)
+        return len(self.child_active_params)
 
     @cached_property
     def fiducial_params(self):
@@ -451,7 +451,6 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
 
         super().__init__(name, params, fiducial, derived)
 
-        warnings.warn("You have not passed any data to {}... logp will not work!".format(self.name))
         self._data = data
 
     @cached_property
@@ -460,7 +459,10 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
 
     @cached_property
     def data(self):
-        if self._data is None and hasattr("_mock"):
+        if self._data is None and not hasattr(self, "_mock"):
+            raise AttributeError("You have not passed any data and no mock method found")
+
+        if self._data is None and hasattr(self, "_mock"):
             self._data = self.mock()
         return self._data
 
@@ -574,7 +576,7 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
             ctx = self.get_ctx(**params)
 
         if model is None:
-            model = self.reduce(ctx, **params)
+            model = self.reduce_model(ctx, **params)
 
         return model, params
 
@@ -593,7 +595,7 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
             params = self._parameter_list_to_dict(params)
 
         ctx = self.get_ctx(**params)
-        model = self.reduce(ctx, **params)
+        model = self._reduce(ctx, **params)
 
         return self.logp(model, **params), self.derived_quantities(model, ctx, **params)
 
@@ -717,5 +719,4 @@ class LikelihoodContainer(Likelihood):
 
         ctx = self.get_ctx(**params)
         models = self._reduce_all(ctx, **params)
-
         return self.logp(models, **params), self.derived_quantities(models, ctx, **params)

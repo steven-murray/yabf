@@ -75,7 +75,6 @@ class Param(Parameter):
         return ref
 
     def logprior(self, val):
-        print(self.min, val, self.max)
         if not (self.min <= val <= self.max):
             return -np.inf
 
