@@ -117,7 +117,12 @@ def _construct_likelihoods(fname, config):
 
     for name, lk in lks.items():
         try:
-            cls = Likelihood._plugins[name]
+            likelihood = lk['likelihood']
+        except KeyError:
+            raise KeyError("Every likelihood requires a key:val pair of likelihood: class_name")
+
+        try:
+            cls = Likelihood._plugins[likelihood]
         except KeyError:
             raise ImportError(
                 "The likelihood {} is not importable. Ensure you "
@@ -135,7 +140,7 @@ def _construct_likelihoods(fname, config):
             data = None
 
         likelihoods.append(
-            cls(name=lk.get("name", None),
+            cls(name=name,
                 params=params, derived=derived, fiducial=fiducial, data=data,
                 components=components, **kwargs))
 
@@ -174,10 +179,7 @@ def load_likelihood_from_yaml(fname):
         )
     else:
         # Otherwise just return the only likelihood, which is self-contained.
-        lk = likelihoods[0]
-        if lk.name == lk.__class__.__name__:
-            lk.name = path.splitext(path.basename(fname))[0]
-        return lk
+        return likelihoods[0]
 
 
 def load_sampler_from_yaml(fname):
