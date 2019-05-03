@@ -61,9 +61,8 @@ def test_bad_derived(simple_component):
 def test_genref(simple_component):
     a = simple_component()
 
-    refs = a.generate_refs(params=['x'])
-    assert len(refs) == 1
-    assert len(refs[0]) == 1
+    with pytest.raises(AttributeError):
+        refs = a.generate_refs(params=['x'])
 
     b = simple_component(params=[Param('x', min=-10, max=10)])
     refs = b.generate_refs()

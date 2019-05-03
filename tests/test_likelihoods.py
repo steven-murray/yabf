@@ -71,25 +71,20 @@ def test_likelihood_properties(inactive_lk, global_lk, sub_lk):
     assert global_lk.in_active_mode
     assert global_lk.total_active_params == 1
     assert global_lk.logprior() == 0
-    assert len(global_lk.fiducial_params) == 1  # fidicual only cares about top-level
+    assert len(global_lk.fiducial_params) == 2 # one param and one component
 
     assert sub_lk.in_active_mode
     assert sub_lk.total_active_params == 2
+    print(sub_lk.fiducial_params)
     assert sub_lk.logprior() == 0
-    assert len(sub_lk.fiducial_params) == 1  # fidicual only cares about top-level
-
+    assert len(sub_lk.fiducial_params) == 2  # fidicual only cares about top-level
+    assert len(sub_lk.fiducial_params['cmp']) == 1
 
 def test_generate_refs(inactive_lk, global_lk):
     lk = inactive_lk
 
-    refs = lk.generate_refs()
-    assert len(refs) == 0
-    refs = lk.generate_refs(params=['x', 'y'])
-    assert len(refs) == 2
-    refs = lk.generate_refs(n=10, params=['x', 'y'])
-    assert len(refs[0]) == len(refs[1]) == 10
-    refs = lk.generate_refs(params=['x'], squeeze=True)
-    assert refs == [0]
+    with pytest.raises(AttributeError):
+        refs = lk.generate_refs()
 
     lk = global_lk
 
@@ -97,9 +92,9 @@ def test_generate_refs(inactive_lk, global_lk):
     assert len(refs) == 1
     refs = lk.generate_refs(squeeze=True)
     assert -10 < refs[0] < 10
-    refs = lk.generate_refs(n=10, squeeze=True, params=['y'])
+    refs = lk.generate_refs(n=10, squeeze=True, params=['x'])
     assert len(refs) == 1
-    assert refs[0] == [0] * 10
+    assert len(refs[0]) == 10
 
 
 def test_fill_params(inactive_lk, global_lk, sub_lk):
@@ -128,8 +123,9 @@ def test_parameter_list_to_dict(inactive_lk, global_lk, sub_lk):
         p = global_lk._parameter_list_to_dict([])
 
     p = global_lk._parameter_list_to_dict([7])
-    assert p['x'] == 7
+    assert p['cmp']['x'] == 7
 
     p = sub_lk._parameter_list_to_dict([7, 10])
+    print(p, sub_lk.child_active_params, sub_lk._child_parameter_locs)
     assert p['y'] == 7
     assert p['cmp']['x'] == 10

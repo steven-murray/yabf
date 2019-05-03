@@ -59,10 +59,14 @@ def test_two_lk_single_external_cmp(simple_component, simple_likelihood):
 
     ctx = lk.get_ctx(**params)
     assert ctx['x2'] == 0
-    assert len(ctx) == 1 #Though there are two components, they overwrite each other.
+    assert len(ctx) == 1  # Though there are two components, they overwrite each other.
     assert lk.logl(**params) == 0
-    assert lk.logl(x=2, y=1) == -8 # -4 for two likelihoods each
+    print(lk.fiducial_params)
+    assert lk.logl(**{"external.x": 2, "use_external.y": 1}) == -4
+    assert lk.logl(**{"external":{"x": 2}, "use_external":{"y": 1}}) == -4
 
+    with pytest.raises(ValueError):
+        lk.logl(x=2, y=2) # x can't be found.
 
 def test_two_lk_sharing_a_param():
     class ThisComponent(Component):
@@ -103,8 +107,9 @@ def test_two_lk_sharing_a_param():
                 name='big',
                 components=[
                     ThisComponent(params=(
-                        Param('x', fiducial=5),
-                        Param('y', fiducial=5))
+                        Param('xx', fiducial=5, alias_for='x'),
+                        Param('yy', fiducial=5, alias_for='y')
+                    )
                     )
                 ]
             )

@@ -45,7 +45,7 @@ class Param(Parameter):
 
     @alias_for.validator
     def _alias_validator(self, attribute, value):
-        assert isinstance(value, str) or isinstance(value, Parameter)
+        assert isinstance(value, str) or hasattr(value, "__iter__")
 
     def generate_ref(self, n=1):
         if self.ref is None:
@@ -86,7 +86,7 @@ class Param(Parameter):
             except AttributeError:
                 return self.prior(val)
 
-    def new(self, p):
+    def new(self, p, aliases=None):
         """
         Create a new Param instance with any missing info from this
         instance filled in by the given instance.
@@ -102,5 +102,5 @@ class Param(Parameter):
             latex=self.latex if (self.latex != self.name or self.name != p.name) else p.latex,
             ref=self.ref,
             prior=self.prior,
-            alias_for=self.alias_for
+            alias_for=aliases or self.alias_for
         )

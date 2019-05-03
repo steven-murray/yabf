@@ -103,8 +103,8 @@ class emcee(Sampler):
         # the entire EnsembleSampler
         return MCSamples(
             samples=samples.get_chain(flat=False, discard=500),
-            names=list(self.likelihood.flat_active_params.keys()),
-            labels=[p['param'].latex for p in self.likelihood.flat_active_params.values()]
+            names=[a.name for a in self.likelihood.child_active_params],
+            labels=[p.latex for p in self.likelihood.child_active_params]
         )
 
 
@@ -144,7 +144,6 @@ class polychord(Sampler):
     @cached_property
     def prior(self):
         # Determine proper prior.
-        print("CHILD PARAMS:", [p.name for p in self.likelihood.child_active_params])
         def pr(hypercube):
             ret = []
             for p, h in zip(self.likelihood.child_active_params, hypercube):
@@ -162,7 +161,7 @@ class polychord(Sampler):
         return posterior
 
     def _make_paramnames_files(self, mcsamples):
-        paramnames = [(p['param'].name, p['param'].latex) for p in self.likelihood.flat_active_params.values()]
+        paramnames = [(p.name, p.latex) for p in self.likelihood.child_active_params]
 
         # also have to add derived...
         paramnames += [(f'der{i}', f'der{i}') for i in range(self.nderived)]

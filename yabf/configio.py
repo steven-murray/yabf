@@ -20,7 +20,7 @@ def _get_included(fname, dct, key="include"):
     inc = dct.pop(key, None)
     if inc:
         with open(_absfile(fname, inc), 'rb') as f:
-            dct.update(yaml.load(f))
+            dct.update(yaml.load(f, Loader=yaml.FullLoader))
 
 
 def _ensure_float(dct, name):
@@ -160,7 +160,7 @@ def _import_plugins(config):
 
 def load_likelihood_from_yaml(fname):
     with open(fname) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     _import_plugins(config)
 
@@ -169,7 +169,7 @@ def load_likelihood_from_yaml(fname):
     components = _construct_components(fname, config)
     derived = _construct_derived(fname, config)
     fiducial = _construct_fiducial(fname, config)
-    params = _construct_fiducial(fname, config)
+    params = _construct_params(fname, config)
     likelihoods = _construct_likelihoods(fname, config)
 
     if any([len(components), len(derived), len(fiducial), len(params)]) or len(likelihoods) > 1:
@@ -187,7 +187,7 @@ def load_sampler_from_yaml(fname):
     Return a sampler and any sampling arguments specified in the yaml file
     """
     with open(fname) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     _import_plugins(config)
 
