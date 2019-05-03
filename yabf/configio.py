@@ -57,6 +57,9 @@ def _construct_data(fname, dct, key="kwargs"):
 
     loader = DataLoader._plugins[dct.pop("data_loader", "CompositeLoader")]
 
+    if key == 'data' and key not in dct:
+        return None
+
     data_dct = dct.get(key, {})
 
     if type(data_dct) is dict:
@@ -136,9 +139,6 @@ def _construct_likelihoods(fname, config):
         fiducial = _construct_fiducial(fname, lk)
         components = _construct_components(fname, lk)
 
-        if not data:  # need to convert from dict to None if no data passed.
-            data = None
-
         likelihoods.append(
             cls(name=name,
                 params=params, derived=derived, fiducial=fiducial, data=data,
@@ -182,10 +182,15 @@ def load_likelihood_from_yaml(fname):
         return likelihoods[0]
 
 
-def load_sampler_from_yaml(fname):
-    """
-    Return a sampler and any sampling arguments specified in the yaml file
-    """
+def _construct_sampler(config, likelihood):
+    sampler = Sampler._plugins[config.get("sampler")]
+    init = config.get("init", {})
+    runkw = config.get("sample", {})
+
+    return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
+
+
+def load_from_yaml(fname):
     with open(fname) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -199,8 +204,14 @@ def load_sampler_from_yaml(fname):
     if type(config.get("sampler")) is not dict:
         _get_included(fname, config, "sampler")
 
-    sampler = Sampler._plugins[config.get("sampler")]
-    init = config.get("init", {})
-    runkw = config.get("sample", {})
+    return _construct_sampler(config, likelihood)
 
-    return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
+
+def load_sampler_from_yaml(fname, likelihood):
+    """
+    Return a sampler and any sampling arguments specified in the yaml file
+    """
+    with open(fname) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+    return _construct_sampler(config, likelihood)

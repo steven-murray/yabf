@@ -4,7 +4,7 @@
 
 import sys
 import click
-from . import load_sampler_from_yaml
+from . import load_sampler_from_yaml, load_likelihood_from_yaml, load_from_yaml
 
 from os import path
 from getdist import plots
@@ -17,9 +17,15 @@ except:
 @click.command()
 @click.argument("yaml_file", type=click.Path(exists=True, dir_okay=False))
 @click.option('--plot/--no-plot', default=True)
-def main(yaml_file, plot):
+@click.option('-s', '--sampler-file', default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--prefix", default=None)
+def main(yaml_file, plot, sampler_file, prefix):
     """Console script for edges_estimate."""
-    sampler, runkw = load_sampler_from_yaml(yaml_file)
+    if sampler_file is not None:
+        likelihood = load_likelihood_from_yaml(yaml_file)
+        sampler, runkw = load_sampler_from_yaml(sampler_file, likelihood)
+    else:
+        sampler, runkw = load_sampler_from_yaml(yaml_file)
 
     mcsamples = sampler.sample(**runkw)
 
@@ -53,7 +59,10 @@ def main(yaml_file, plot):
     if plot and HAVE_MPL:
         g = plots.getSubplotPlotter()
         g.triangle_plot(mcsamples, shaded=True)
-        plt.savefig(path.join("corner.pdf"))
+
+        if prefix is None:
+            prefix = path.splitext(path.basename(yaml_file))[0]
+        plt.savefig(prefix+"_corner.pdf")
 
     return 0
 

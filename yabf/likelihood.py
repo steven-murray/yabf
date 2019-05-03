@@ -183,8 +183,8 @@ class ParameterComponent:
 
                 if matched > 1:
                     warnings.warn(
-                        "You have passed a parameter alias [{}] which matches"
-                        "more than one parameter [{}]. Only information from the first"
+                        "You have passed a parameter alias [{}] which matches "
+                        "more than one parameter [{}]. Only information from the first "
                         "matched parameter will be used to define the active "
                         "parameter".format(al, full_aliases[-matched:])
                     )
@@ -459,9 +459,6 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
         if type(cls.provides) not in [list, set, tuple]:
             raise TypeError("Component {} must define a list/set/tuple for provides".format(cls.__name__))
 
-        if not cls.provides:
-            raise TypeError("Component {} must provide at least one quantity".format(cls.__name__))
-
         for pr in cls.provides:
             if type(pr) is not str:
                 raise ValueError("provides should be an ordered iterable of strings")
@@ -494,7 +491,7 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
         """
         pass
 
-    def __call__(self, **params):
+    def __call__(self, ctx=None, **params):
         """
         Every component should take a dct of parameter values and return
         a dict of values to be used. All Parameters of the component will
@@ -503,16 +500,28 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
         if len(params) != len(self.base_parameters):
             params = self._fill_params(params)
 
-        res = self.calculate(**params)
-        if type(res) != tuple:
-            res = tuple([res])
+        res = self.calculate(ctx, **params)
 
-        if len(self.provides) != len(res):
-            raise ValueError(
-                "{} does not return an ordered iterable of the same length as its 'provides' attribute from calculate()".format(
-                    self.__class__.__name__))
+        if res is None:
+            if self.provides:
+                raise ValueError("component {} says it provides {} but does not return anything from calculate()".format(self.name, self.provides))
+            return ctx
+        else:
+            if type(res) != tuple:
+                res = (res,)
 
-        return {p: r for p, r in zip(self.provides, res)}
+            if len(self.provides) != len(res):
+                raise ValueError(
+                    "{} does not return an ordered iterable of the same length "
+                    "as its 'provides' attribute from calculate()".format(
+                        self.__class__.__name__)
+                )
+
+            if ctx is None:
+                ctx = {}
+
+            ctx.update({p: r for p, r in zip(self.provides, res)})
+            return ctx
 
 
 class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
