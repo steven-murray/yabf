@@ -578,9 +578,9 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
         for d in self.derived:
             if type(d) == str:
                 # Append local quantity
-                dquants.append(getattr(self, d)(model, params, ctx))
+                dquants.append(getattr(self, d)(model, ctx, **params))
             elif callable(d):
-                dquants.append(d(model, params, ctx))
+                dquants.append(d(model, ctx, **params))
             else:
                 raise ValueError("{} is not a valid entry for derived".format(d))
 
