@@ -22,7 +22,7 @@ except:
 @click.option("--prefix", default=None)
 @click.option('-f', '--plot-format', default='pdf', type=click.Choice(['pdf', 'png'], case_sensitive=False))
 def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
-    """Console script for edges_estimate."""
+    """Console script for yabf."""
     if sampler_file is not None:
         likelihood = load_likelihood_from_yaml(yaml_file)
         sampler, runkw = load_sampler_from_yaml(sampler_file, likelihood)
@@ -60,7 +60,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
 
     if plot and HAVE_MPL:
         g = plots.getSubplotPlotter()
-        g.triangle_plot(mcsamples, shaded=True)
+        g.triangle_plot(mcsamples, params=list(likelihood.child_active_params.keys()),shaded=True)
 
         if prefix is None:
             prefix = path.splitext(path.basename(yaml_file))[0]
