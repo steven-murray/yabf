@@ -8,3 +8,5 @@ yabf\.egg-info/
 yabf/__pycache__/
 
 *.pyc
+
+.rsync_up.sh

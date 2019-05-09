@@ -18,8 +18,10 @@ except:
 @click.argument("yaml_file", type=click.Path(exists=True, dir_okay=False))
 @click.option('--plot/--no-plot', default=True)
 @click.option('-s', '--sampler-file', default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("-w/-W", '--write/--no-write', default=True)
 @click.option("--prefix", default=None)
-def main(yaml_file, plot, sampler_file, prefix):
+@click.option('-f', '--plot-format', default='pdf', type=click.Choice(['pdf', 'png'], case_sensitive=False))
+def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     """Console script for edges_estimate."""
     if sampler_file is not None:
         likelihood = load_likelihood_from_yaml(yaml_file)
@@ -62,7 +64,10 @@ def main(yaml_file, plot, sampler_file, prefix):
 
         if prefix is None:
             prefix = path.splitext(path.basename(yaml_file))[0]
-        plt.savefig(prefix+"_corner.pdf")
+        plt.savefig(prefix+"_corner.{}".format(plot_format))
+
+    if write:
+        mcsamples.saveAsText(prefix, make_dirs=True)
 
     return 0
 
