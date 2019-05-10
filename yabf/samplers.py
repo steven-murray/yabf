@@ -3,6 +3,7 @@ Module defining the API for Samplers
 """
 
 import attr
+from attr.validators import instance_of
 import numpy as np
 import pypolychord as ppc
 from cached_property import cached_property
@@ -10,23 +11,52 @@ from emcee import EnsembleSampler
 from getdist import MCSamples
 from pypolychord.priors import UniformPrior
 from pypolychord.settings import PolyChordSettings
+import os
+import warnings
 
 from . import Likelihood
 from .plugin import plugin_mount_factory
+from . import yaml
 
 
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
-    likelihood = attr.ib()
+    likelihood = attr.ib(validator=instance_of(Likelihood))
+    _output_prefix = attr.ib(validator=instance_of(str))
+    _save_full_config = attr.ib(default=True, converter=bool)
     sampler_kwargs = attr.ib(default={})
-    sampler_stores_samples = True
 
     def __attrs_post_init__(self):
         self.mcsamples = None
 
-    @likelihood.validator
-    def _lk_validator(self, attribute, val):
-        assert isinstance(val, Likelihood)
+        # Save the configuration
+        if self._save_full_config:
+            with open(self.config_filename) as fl:
+                yaml.dump(self.likelihood, fl)
+
+    @_output_prefix.default
+    def _op_default(self):
+        return self.likelihood.name
+
+    @cached_property
+    def output_dir(self):
+        dir = os.path.abspath(os.path.dirname(self._output_prefix))
+
+        # Try to create the directory.
+        try:
+            os.makedirs(dir)
+            warnings.warn("Proposed output directory '{}' did not exist. Created it.".format(dir))
+        except FileExistsError:
+            pass
+        return dir
+
+    @cached_property
+    def output_file_prefix(self):
+        return os.path.basename(self._output_prefix)
+
+    @cached_property
+    def config_filename(self):
+        return os.path.join(self.output_dir, self.output_file_prefix) + "_config.yml"
 
     @cached_property
     def nparams(self):
@@ -109,12 +139,6 @@ class emcee(Sampler):
 
 
 class polychord(Sampler):
-    # A really bad hack!
-
-    @property
-    def file_root(self):
-        return self.sampler_kwargs.pop("file_root", self.likelihood.name)
-
     @staticmethod
     def _flat_array(elements):
         lst = []
@@ -168,7 +192,18 @@ class polychord(Sampler):
         mcsamples.make_paramnames_files(paramnames)
 
     def _get_sampler(self, **kwargs):
-        return PolyChordSettings(self.nparams, self.nderived, file_root=self.file_root, **kwargs)
+        if "file_root" in kwargs:
+            warnings.warn("file_root was defined in sampler_kwargs, but is replaced by output_prefix")
+            del kwargs['file_root']
+
+        if "base_dir" in kwargs:
+            warnings.warn("base_dir was defined in sampler_kwargs, but is replaced by output_prefix")
+            del kwargs['base_dir']
+
+        return PolyChordSettings(
+            self.nparams, self.nderived, base_dir=self.output_dir,
+            file_root=self.output_file_prefix, **kwargs
+        )
 
     def _get_sampling_fn(self, sampler):
         return ppc.run_polychord

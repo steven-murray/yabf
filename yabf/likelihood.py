@@ -1,14 +1,13 @@
 """
 Framework for MCMC likelihoods (and parameters).
 """
+import warnings
 from collections import OrderedDict
 from copy import copy
 
-import numpy as np
+import attr
 from cached_property import cached_property
-import warnings
 
-from .parameters import Param
 from .plugin import plugin_mount_factory
 
 
@@ -25,28 +24,62 @@ class DependencyError(ValueError):
     pass
 
 
+@attr.s
 class ParameterComponent:
     """
     A base class for named components and likelihoods that take parameters.
+
+    Parameters
+    ----------
+    name : str, optional
+        A name for the component. Default is the class name.
+    fiducial: dict, optional
+        Fiducial values for parameters of this particular object (i.e. none of its
+        children), and which aren't given as active parameters. Otherwise their
+        fiducial values are inherited from the Component definition.
+    params: tuple of :class:`~parameters.Params` instances
+        Definition of which parameters are to be treated as "active" (i.e. fitted for).
+        These parameters receive special status in some methods.
+    derived: tuple of strings or callables
+        A tuple defining which derived parameters may be obtained by calling the
+        :func:`derived_quantities` method. If str, there must be a method within
+        the object by that name, else if a callable, it must receive a number of
+        arguments which depends on the kind of class this is. It will typically
+        be ctx and kwargs for params, or perhaps a model, ctx and params.
     """
+    name = attr.ib()
+    fiducial = attr.ib(factory=dict, kw_only=True)
+    params = attr.ib(factory=tuple, converter=tuple, kw_only=True)
+    derived = attr.ib(factory=tuple, converter=tuple, kw_only=True)
+
     base_parameters = tuple()
 
     def __init_subclass__(cls, **kwargs):
         names = [p.name for p in cls.base_parameters]
         if len(set(names)) != len(cls.base_parameters):
             raise ValueError("There are two parameters with the same name in {}: {}".format(cls.__name__, names))
+        super().__init_subclass__()
 
-    def __init__(self, name=None, params=None, fiducial=None, derived=None):
-        self.name = name or self.__class__.__name__
+    def __attrs_post_init__(self):
+        cmp_names = self._get_subcomponent_names()
+        if len(set(cmp_names)) != len(cmp_names):
+            raise NameError("Not all components have different names: {}".format(cmp_names))
 
-        params = tuple(params) if params is not None else tuple()
-        self.derived = tuple(derived) if derived is not None else tuple()
-        fiducial = fiducial or {}
+    def _get_subcomponent_names(self):
+        return [self.name] + sum([cmp._get_subcomponent_names() for cmp in self._subcomponents], [])
 
-        self.__constrained_params = params
+    @name.default
+    def _name_default(self):
+        return self.__class__.__name__
 
-        for name, value in fiducial.items():
-            if name in self.__constrained_params:
+    @name.validator
+    def _name_validator(self, attribute, value):
+        assert isinstance(value, str), "name must be a string"
+
+    @fiducial.validator
+    def _fiducial_validator(self, attribute, value):
+        for name, value in value.items():
+            if name in self.params:
                 raise ValueError("Pass fiducial values to constrained parameters "
                                  "inside the Param class")
             if name not in self.base_parameter_dct:
@@ -56,10 +89,39 @@ class ParameterComponent:
                     "to which they belong.".format(name, self.name)
                 )
 
-        self._fixed_fiducial = fiducial
-        self.validate_derived()
+    @derived.validator
+    def _derived_validator(self, att, val):
+        self._validate_derived(val)
 
-        self._in_active_mode = len(self.child_active_params) > 0
+    # def __init__(self, name=None, params=None, fiducial=None, derived=None):
+    #     self.name = name or self.__class__.__name__
+    #
+    #     params = tuple(params) if params is not None else tuple()
+    #     self.derived = tuple(derived) if derived is not None else tuple()
+    #     fiducial = fiducial or {}
+    #
+    #     self.__constrained_params = params
+    #
+    #     for name, value in fiducial.items():
+    #         if name in self.__constrained_params:
+    #             raise ValueError("Pass fiducial values to constrained parameters "
+    #                              "inside the Param class")
+    #         if name not in self.base_parameter_dct:
+    #             raise KeyError(
+    #                 "Fiducial parameter {} does not match any parameters of {}. "
+    #                 "Note that fiducial parameters must be passed at the level "
+    #                 "to which they belong.".format(name, self.name)
+    #             )
+    #
+    #     self._fixed_fiducial = fiducial
+    #     self.validate_derived()
+    #
+    #     self._in_active_mode = len(self.child_active_params) > 0
+    #
+
+    @cached_property
+    def _in_active_mode(self):
+        return bool(self.child_active_params)
 
     @cached_property
     def _subcomponents(self):
@@ -69,8 +131,8 @@ class ParameterComponent:
     def _subcomponent_names(self):
         return tuple([c.name for c in self._subcomponents])
 
-    def validate_derived(self):
-        for d in self.derived:
+    def _validate_derived(self, val):
+        for d in val:
             assert (callable(d) or (type(d) is str and hasattr(self, d))), f"{d} is not a valid derived parameter"
 
     @property
@@ -145,7 +207,7 @@ class ParameterComponent:
             res.append(p)
 
         for cmp in self._subcomponents:
-            this = [cmp.name+"." + child for child in cmp._child_parameter_locs]
+            this = [cmp.name + "." + child for child in cmp._child_parameter_locs]
 
             res.extend(this)
 
@@ -160,7 +222,7 @@ class ParameterComponent:
         Note that this is just the parameters themselves.
         """
         out = []
-        for v in self.__constrained_params:
+        for v in self.params:
             if type(v.alias_for) is str:
                 alias = [v.alias_for]
             else:
@@ -268,8 +330,8 @@ class ParameterComponent:
         dct = {}
 
         for param in self.base_parameters:
-            if param.name in self._fixed_fiducial:
-                dct[param.name] = self._fixed_fiducial[param.name]
+            if param.name in self.fiducial:
+                dct[param.name] = self.fiducial[param.name]
             else:
                 dct[param.name] = param.fiducial
 
@@ -439,11 +501,20 @@ class ParameterComponent:
             ref = param.generate_ref(n)
 
             if not squeeze and n == 1:
-                    ref = [ref]
+                ref = [ref]
 
             refs.append(ref)
 
         return refs
+
+    def __getstate__(self):
+        """
+        Set the YAML/pickle state such that only the initial values passed to
+        the constructor are actually saved. In this sense, this class is "frozen",
+        though there are some attributes which are lazy-loaded after instantiation.
+        These don't need to be written.
+        """
+        return {k:v for k,v in self.__dict__.items() if k in attr.asdict(self)}
 
 
 class Component(ParameterComponent, metaclass=plugin_mount_factory()):
@@ -504,7 +575,9 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
 
         if res is None:
             if self.provides:
-                raise ValueError("component {} says it provides {} but does not return anything from calculate()".format(self.name, self.provides))
+                raise ValueError(
+                    "component {} says it provides {} but does not return anything from calculate()".format(self.name,
+                                                                                                            self.provides))
             return ctx
         else:
             if type(res) != tuple:
@@ -524,22 +597,15 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
             return ctx
 
 
+@attr.s
 class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
+    _data = attr.ib(default=None, kw_only=True)
+    components = attr.ib(factory=tuple, converter=tuple, kw_only=True)
 
-    def __init__(self, data=None, components=None, **kwargs):
-        """
-
-        Parameters
-        data : whatever data is pertinent to this likelihood
-        components : components "owned" by this likelihood. These are processed specifically
-                     inside this likelihood, *after* any components processed by
-                     the container.
-        """
-        self.components = tuple(components) if components is not None else tuple()
-
-        super().__init__(**kwargs)
-
-        self._data = data
+    @components.validator
+    def _cmp_valid(self, att, val):
+        for cmp in val:
+            assert isinstance(cmp, Component), "component {} is not a valid Component".format(cmp.name)
 
     @cached_property
     def _subcomponents(self):
@@ -626,7 +692,7 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
         if ctx is None:
             ctx = self.get_ctx(**params)
 
-        top_level_params = {p:v for p,v in params.items() if not isinstance(v, dict)}
+        top_level_params = {p: v for p, v in params.items() if not isinstance(v, dict)}
         return self._reduce(ctx, **top_level_params)
 
     def _reduce(self, ctx, **params):
@@ -646,7 +712,7 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
 
     def logl(self, model=None, ctx=None, **params):
         model, params = self._get_model_and_params(params, model, ctx)
-        top_level_params = {p:v for p,v in params.items() if not isinstance(v, dict)}
+        top_level_params = {p: v for p, v in params.items() if not isinstance(v, dict)}
         return self.lnl(model, **top_level_params)
 
     def logp(self, model=None, **params):
@@ -666,42 +732,29 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
         return self.logp(model, **params), self.derived_quantities(model, ctx, **params)
 
 
+@attr.s
 class LikelihoodContainer(Likelihood):
-    def __init__(self, likelihoods, **kwargs):
-        self.likelihoods = tuple(likelihoods)
-        if not hasattr(likelihoods, "__len__") or len(likelihoods) < 1:
+    likelihoods = attr.ib(converter=tuple, kw_only=True)
+
+    @likelihoods.validator
+    def _lk_valid(self, att, val):
+        if not hasattr(val, "__len__") or len(val) < 1:
             raise ValueError("likelihoods should be a tuple of at least one likelihood")
 
-        for lk in self.likelihoods:
+        for lk in val:
             assert isinstance(lk, Likelihood)
-            lk._in_active_mode = True  # ensure everything is in active mode.
 
-        super().__init__(**kwargs)
-
-        # Change the name
-        if "name" not in kwargs:
-            self.name = " ".join([lk.name for lk in likelihoods])
-
-        for cmp in self.components:
-            assert isinstance(cmp, Component)
-
-            for lk in self.likelihoods:
-                assert cmp.name not in lk.components, "Do not use the same component both globally and in a likelihood!"
-
-        for lk in likelihoods:
-            if not lk.check_component_requirements(self.components + lk.components):
-                raise DependencyError(
-                    "likelihood {} does not have all component requirements satisfied".format(lk.name))
-
-        for d in self.derived:
-            assert callable(d)
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        if self.name == self.__class__.__name__:
+            self.name = " ".join([lk.name for lk in self.likelihoods])
 
     @cached_property
     def _subcomponents(self):
         return self.components + self.likelihoods
 
-    def validate_derived(self):
-        for d in self.derived:
+    def _validate_derived(self, val):
+        for d in val:
             assert callable(d), f"{d} is not a valid derived parameter"
 
     def get_ctx(self, **params):
@@ -743,7 +796,7 @@ class LikelihoodContainer(Likelihood):
 
         out = {}
         for lk in self.likelihoods:
-            top_level_params = {p:v for p,v in params[lk.name].items() if not isinstance(v, dict)}
+            top_level_params = {p: v for p, v in params[lk.name].items() if not isinstance(v, dict)}
             out[lk.name] = lk.lnl(models[lk.name], **top_level_params)
 
         return out

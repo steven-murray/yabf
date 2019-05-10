@@ -2,10 +2,10 @@ import importlib
 import sys
 from os import path
 
-import yaml
 from scipy import stats
 
 from . import Param, LikelihoodContainer, Likelihood, Component, DataLoader, CompositeLoader, Sampler
+from . import yaml
 
 
 def _absfile(yml, fname):
@@ -15,23 +15,13 @@ def _absfile(yml, fname):
         return path.join(path.dirname(path.abspath(yml)), fname)
 
 
-def _get_included(fname, dct, key="include"):
-    # Add any included parameters
-    inc = dct.pop(key, None)
-    if inc:
-        with open(_absfile(fname, inc), 'rb') as f:
-            dct.update(yaml.load(f, Loader=yaml.FullLoader))
-
-
 def _ensure_float(dct, name):
     if name in dct:
         dct[name] = float(dct[name])
 
 
-def _construct_params(fname, dct):
+def _construct_params(dct):
     params = dct.pop("params", {})
-
-    _get_included(fname, params)
 
     parameters = []
     for pname, p in params.items():
@@ -51,7 +41,7 @@ def _construct_params(fname, dct):
     return parameters
 
 
-def _construct_data(fname, dct, key="kwargs"):
+def _construct_data(dct, key="kwargs"):
     if key not in ['kwargs', 'data']:
         raise ValueError("key must be 'kwargs' or 'data'")
 
@@ -63,8 +53,6 @@ def _construct_data(fname, dct, key="kwargs"):
     data_dct = dct.get(key, {})
 
     if type(data_dct) is dict:
-        _get_included(fname, data_dct)
-
         # Load data
         if loader is CompositeLoader:
             loader = DataLoader._plugins[data_dct.pop("data_loader", "CompositeLoader")]
@@ -81,17 +69,16 @@ def _construct_data(fname, dct, key="kwargs"):
         return out
 
 
-def _construct_derived(fname, dct):
+def _construct_derived(dct):
     return dct.pop("derived", [])
 
 
-def _construct_fiducial(fname, dct):
+def _construct_fiducial(dct):
     fiducial = dct.pop("fiducial", {})
-    _get_included(fname, fiducial)
     return fiducial
 
 
-def _construct_components(fname, dct):
+def _construct_components(dct):
     comp = dct.get("components", {})
     components = []
 
@@ -104,17 +91,17 @@ def _construct_components(fname, dct):
                 "have set the correct import_paths and external_modules".format(name)
             )
 
-        cmp_data = _construct_data(fname, c)
-        params = _construct_params(fname, c)
-        derived = _construct_derived(fname, c)
-        fiducial = _construct_fiducial(fname, c)
+        cmp_data = _construct_data(c)
+        params = _construct_params(c)
+        derived = _construct_derived(c)
+        fiducial = _construct_fiducial(c)
 
         components.append(cls(name=c.get("name", None), params=params, derived=derived, fiducial=fiducial, **cmp_data))
 
     return components
 
 
-def _construct_likelihoods(fname, config):
+def _construct_likelihoods(config):
     lks = config.get("likelihoods")
     likelihoods = []
 
@@ -132,12 +119,12 @@ def _construct_likelihoods(fname, config):
                 "have set the correct import_paths and external_modules".format(name)
             )
 
-        data = _construct_data(fname, lk, key="data")
-        kwargs = _construct_data(fname, lk)
-        params = _construct_params(fname, lk)
-        derived = _construct_derived(fname, lk)
-        fiducial = _construct_fiducial(fname, lk)
-        components = _construct_components(fname, lk)
+        data = _construct_data(lk, key="data")
+        kwargs = _construct_data(lk)
+        params = _construct_params(lk)
+        derived = _construct_derived(lk)
+        fiducial = _construct_fiducial(lk)
+        components = _construct_components(lk)
 
         likelihoods.append(
             cls(name=name,
@@ -158,21 +145,28 @@ def _import_plugins(config):
         importlib.import_module(module)
 
 
-def load_likelihood_from_yaml(fname):
-    with open(fname) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+def load_likelihood_from_yaml(stream, name=None):
+    config = yaml.load(stream)
+
+    # First, check if the thing just loaded in fine (i.e. it was written by YAML
+    # on the object itself).
+    if isinstance(config, Likelihood):
+        return config
 
     _import_plugins(config)
 
     # Load outer components
-    name = config.get("name", path.splitext(path.basename(fname))[0])
-    components = _construct_components(fname, config)
-    derived = _construct_derived(fname, config)
-    fiducial = _construct_fiducial(fname, config)
-    params = _construct_params(fname, config)
-    likelihoods = _construct_likelihoods(fname, config)
+    name = config.get("name", name)
+    components = _construct_components(config)
+    derived = _construct_derived(config)
+    fiducial = _construct_fiducial(config)
+    params = _construct_params(config)
+    likelihoods = _construct_likelihoods(config)
 
     if any([len(components), len(derived), len(fiducial), len(params)]) or len(likelihoods) > 1:
+        if name is None:
+            name = " ".join([lk.name for lk in likelihoods])
+
         # If any of the external components are non-empty, we need to build a container
         return LikelihoodContainer(
             name=name, components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
@@ -190,28 +184,23 @@ def _construct_sampler(config, likelihood):
     return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
 
 
-def load_from_yaml(fname):
-    with open(fname) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+def load_from_yaml(stream, name=None):
+    config = yaml.load(stream)
 
     _import_plugins(config)
 
     if type(config.get("likelihoods")) is dict:
-        likelihood = load_likelihood_from_yaml(fname)
+        likelihood = load_likelihood_from_yaml(stream, name)
     else:
         likelihood = load_likelihood_from_yaml(config.get("likelihoods"))
-
-    if type(config.get("sampler")) is not dict:
-        _get_included(fname, config, "sampler")
 
     return _construct_sampler(config, likelihood)
 
 
-def load_sampler_from_yaml(fname, likelihood):
+def load_sampler_from_yaml(stream, likelihood):
     """
     Return a sampler and any sampling arguments specified in the yaml file
     """
-    with open(fname) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = yaml.load(stream)
 
     return _construct_sampler(config, likelihood)

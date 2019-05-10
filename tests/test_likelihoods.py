@@ -1,54 +1,24 @@
 import pytest
-
-from yabf import Component, Parameter, Param, Likelihood
-
-
-@pytest.fixture(scope="module")
-def simple_component():
-    class SimpleComponent(Component):
-        provides = ("x2",)
-        base_parameters = [
-            Parameter("x", 0, min=-10, max=10)
-        ]
-
-        def calculate(self, **param):
-            return param['x'] ** 2
-
-    return SimpleComponent
+from .shared_resources import SimpleComponent, SimpleLikelihood
+from yabf import Param
 
 
 @pytest.fixture(scope="module")
-def simple_likelihood():
-    class SimpleLikelihood(Likelihood):
-        base_parameters = [
-            Parameter("y", 0, min=-100, max=100)
-        ]
-
-        def _reduce(self, ctx, **params):
-            return ctx['x2'] * params['y']
-
-        def lnl(self, model, **params):
-            return -model
-
-    return SimpleLikelihood
+def inactive_lk():
+    return SimpleLikelihood(components=[SimpleComponent(name='cmp')])
 
 
 @pytest.fixture(scope="module")
-def inactive_lk(simple_likelihood, simple_component):
-    return simple_likelihood(components=[simple_component(name='cmp')])
-
-
-@pytest.fixture(scope="module")
-def global_lk(simple_likelihood, simple_component):
-    return simple_likelihood(components=[simple_component(name='cmp')],
+def global_lk():
+    return SimpleLikelihood(components=[SimpleComponent(name='cmp')],
                              params=(Param('x', fiducial=1.5),))
 
 
 @pytest.fixture(scope="module")
-def sub_lk(simple_likelihood, simple_component):
-    return simple_likelihood(
+def sub_lk():
+    return SimpleLikelihood(
         components=[
-            simple_component(
+            SimpleComponent(
                 name='cmp',
                 params=(Param('x', fiducial=1.5),)
             )
@@ -71,7 +41,7 @@ def test_likelihood_properties(inactive_lk, global_lk, sub_lk):
     assert global_lk.in_active_mode
     assert global_lk.total_active_params == 1
     assert global_lk.logprior() == 0
-    assert len(global_lk.fiducial_params) == 2 # one param and one component
+    assert len(global_lk.fiducial_params) == 2  # one param and one component
 
     assert sub_lk.in_active_mode
     assert sub_lk.total_active_params == 2
@@ -79,6 +49,7 @@ def test_likelihood_properties(inactive_lk, global_lk, sub_lk):
     assert sub_lk.logprior() == 0
     assert len(sub_lk.fiducial_params) == 2  # fidicual only cares about top-level
     assert len(sub_lk.fiducial_params['cmp']) == 1
+
 
 def test_generate_refs(inactive_lk, global_lk):
     lk = inactive_lk

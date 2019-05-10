@@ -15,19 +15,24 @@ except:
     HAVE_MPL = False
 
 @click.command()
-@click.argument("yaml_file", type=click.Path(exists=True, dir_okay=False))
+@click.argument("yaml_file", type=click.File('r'))
 @click.option('--plot/--no-plot', default=True)
-@click.option('-s', '--sampler-file', default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option('-s', '--sampler-file', default=None, type=click.File('r'))
 @click.option("-w/-W", '--write/--no-write', default=True)
 @click.option("--prefix", default=None)
 @click.option('-f', '--plot-format', default='pdf', type=click.Choice(['pdf', 'png'], case_sensitive=False))
 def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     """Console script for yabf."""
+
     if sampler_file is not None:
         likelihood = load_likelihood_from_yaml(yaml_file)
         sampler, runkw = load_sampler_from_yaml(sampler_file, likelihood)
     else:
-        sampler, runkw = load_sampler_from_yaml(yaml_file)
+        sampler, runkw = load_from_yaml(yaml_file)
+
+    yaml_file.close()
+    if sampler_file:
+        sampler_file.close()
 
     mcsamples = sampler.sample(**runkw)
 
