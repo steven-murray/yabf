@@ -1,6 +1,6 @@
 import attr
 import numpy as np
-
+import yaml
 
 @attr.s(frozen=True)
 class Parameter:
@@ -85,6 +85,7 @@ class Param(Parameter):
                 return self.prior.logpdf(val)
             except AttributeError:
                 return self.prior(val)
+
 
     def new(self, p, aliases=None):
         """

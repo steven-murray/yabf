@@ -30,9 +30,9 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     else:
         sampler, runkw = load_from_yaml(yaml_file)
 
-    yaml_file.close()
-    if sampler_file:
-        sampler_file.close()
+    # yaml_file.close()
+    # if sampler_file:
+    #     sampler_file.close()
 
     mcsamples = sampler.sample(**runkw)
 

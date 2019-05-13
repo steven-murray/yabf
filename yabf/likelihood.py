@@ -47,7 +47,7 @@ class ParameterComponent:
         arguments which depends on the kind of class this is. It will typically
         be ctx and kwargs for params, or perhaps a model, ctx and params.
     """
-    name = attr.ib()
+    _name = attr.ib(validator=attr.validators.optional(attr.validators.instance_of(str)))
     fiducial = attr.ib(factory=dict, kw_only=True)
     params = attr.ib(factory=tuple, converter=tuple, kw_only=True)
     derived = attr.ib(factory=tuple, converter=tuple, kw_only=True)
@@ -61,20 +61,21 @@ class ParameterComponent:
         super().__init_subclass__()
 
     def __attrs_post_init__(self):
-        cmp_names = self._get_subcomponent_names()
-        if len(set(cmp_names)) != len(cmp_names):
-            raise NameError("Not all components have different names: {}".format(cmp_names))
+        if len(set(self._child_parameter_locs)) != len(self._child_parameter_locs):
+            raise NameError("One or more of the parameter paths from {} is not unique: "
+                            "{}".format(self.name, self._child_parameter_locs))
 
     def _get_subcomponent_names(self):
         return [self.name] + sum([cmp._get_subcomponent_names() for cmp in self._subcomponents], [])
 
-    @name.default
+    @_name.default
     def _name_default(self):
         return self.__class__.__name__
 
-    @name.validator
-    def _name_validator(self, attribute, value):
-        assert isinstance(value, str), "name must be a string"
+    @cached_property
+    def name(self):
+        """Name of the component"""
+        return self._name or self.__class__.__name__
 
     @fiducial.validator
     def _fiducial_validator(self, attribute, value):

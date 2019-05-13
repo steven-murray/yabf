@@ -1,5 +1,5 @@
-from yabf import yaml, LikelihoodContainer, load_likelihood_from_yaml
-
+from yabf import LikelihoodContainer, load_likelihood_from_yaml
+import yaml
 
 def test_round_trip():
     # subclass
@@ -27,6 +27,6 @@ components:
     assert "external" in lk._get_subcomponent_names()
 
     out = yaml.dump(lk)
-    lk2 = yaml.load(out)
+    lk2 = yaml.load(out, Loader=yaml.FullLoader)
 
     assert lk == lk2

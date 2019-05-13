@@ -31,7 +31,7 @@ class Sampler(metaclass=plugin_mount_factory()):
 
         # Save the configuration
         if self._save_full_config:
-            with open(self.config_filename) as fl:
+            with open(self.config_filename, 'w') as fl:
                 yaml.dump(self.likelihood, fl)
 
     @_output_prefix.default

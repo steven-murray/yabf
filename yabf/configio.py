@@ -2,10 +2,13 @@ import importlib
 import sys
 from os import path
 
+from . import yaml
 from scipy import stats
+#from yamlinclude import YamlIncludeConstructor
 
 from . import Param, LikelihoodContainer, Likelihood, Component, DataLoader, CompositeLoader, Sampler
-from . import yaml
+
+#YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
 
 
 def _absfile(yml, fname):
@@ -145,7 +148,15 @@ def _import_plugins(config):
         importlib.import_module(module)
 
 
-def load_likelihood_from_yaml(stream, name=None):
+def _change_base_dir(base_dir):
+    pass
+    # if base_dir:
+    #     yaml.FullLoader.yaml_constructors['!include']._base_dir = base_dir
+
+
+def load_likelihood_from_yaml(stream, name=None, base_dir=None):
+    _change_base_dir(base_dir)
+
     config = yaml.load(stream)
 
     # First, check if the thing just loaded in fine (i.e. it was written by YAML
@@ -167,6 +178,7 @@ def load_likelihood_from_yaml(stream, name=None):
         if name is None:
             name = " ".join([lk.name for lk in likelihoods])
 
+        print("USING NAME: ", name)
         # If any of the external components are non-empty, we need to build a container
         return LikelihoodContainer(
             name=name, components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
@@ -184,7 +196,9 @@ def _construct_sampler(config, likelihood):
     return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
 
 
-def load_from_yaml(stream, name=None):
+def load_from_yaml(stream, name=None, base_dir=None):
+    _change_base_dir(base_dir)
+
     config = yaml.load(stream)
 
     _import_plugins(config)
@@ -197,10 +211,11 @@ def load_from_yaml(stream, name=None):
     return _construct_sampler(config, likelihood)
 
 
-def load_sampler_from_yaml(stream, likelihood):
+def load_sampler_from_yaml(stream, likelihood, base_dir=None):
     """
     Return a sampler and any sampling arguments specified in the yaml file
     """
+    _change_base_dir(base_dir)
     config = yaml.load(stream)
 
     return _construct_sampler(config, likelihood)
