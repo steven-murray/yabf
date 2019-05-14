@@ -8,6 +8,7 @@ import logging
 import os.path
 
 import yaml
+from yaml import *
 
 log = logging.getLogger(__name__)
 
@@ -82,7 +83,6 @@ def _move_up(obj, parent=None, indx=None):
                 parent[k] = v
 
     elif isinstance(obj, list):
-        print(obj, parent, indx)
         for i, item in enumerate(obj):
             _move_up(item, obj, i)
 
@@ -90,7 +90,6 @@ def _move_up(obj, parent=None, indx=None):
                 parent.insert(indx + i + 1, item)
 
     if hasattr(obj, "__getitem__") and "__del__" in obj and obj != "__del__":
-        print('deleting: ', parent[indx])
         del parent[indx]
 
 

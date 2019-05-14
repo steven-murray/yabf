@@ -52,7 +52,8 @@ class Param(Parameter):
             # Use prior
             if self.prior is None:
                 if np.isinf(self.min) or np.isinf(self.max):
-                    raise ValueError("Cannot generate reference values for active parameter with infinite bounds")
+                    raise ValueError("Cannot generate reference values for active "
+                                     "parameter with infinite bounds")
 
                 ref = np.random.uniform(self.min, self.max, size=n)
             else:
@@ -67,10 +68,12 @@ class Param(Parameter):
                 try:
                     ref = self.ref(size=n)
                 except TypeError:
-                    raise TypeError("parameter '{}' does not have a valid value for ref".format(self.name))
+                    raise TypeError("parameter '{}' does not have a valid value for "
+                                    "ref".format(self.name))
 
         if not np.all(np.logical_and(self.min <= ref, ref <= self.max)):
-            raise ValueError(f"param {self.name} produced a reference value outside its domain.")
+            raise ValueError(f"param {self.name} produced a reference value outside "
+                             f"its domain.")
 
         return ref
 
@@ -85,7 +88,6 @@ class Param(Parameter):
                 return self.prior.logpdf(val)
             except AttributeError:
                 return self.prior(val)
-
 
     def new(self, p, aliases=None):
         """

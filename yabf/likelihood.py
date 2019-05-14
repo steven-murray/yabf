@@ -94,32 +94,6 @@ class ParameterComponent:
     def _derived_validator(self, att, val):
         self._validate_derived(val)
 
-    # def __init__(self, name=None, params=None, fiducial=None, derived=None):
-    #     self.name = name or self.__class__.__name__
-    #
-    #     params = tuple(params) if params is not None else tuple()
-    #     self.derived = tuple(derived) if derived is not None else tuple()
-    #     fiducial = fiducial or {}
-    #
-    #     self.__constrained_params = params
-    #
-    #     for name, value in fiducial.items():
-    #         if name in self.__constrained_params:
-    #             raise ValueError("Pass fiducial values to constrained parameters "
-    #                              "inside the Param class")
-    #         if name not in self.base_parameter_dct:
-    #             raise KeyError(
-    #                 "Fiducial parameter {} does not match any parameters of {}. "
-    #                 "Note that fiducial parameters must be passed at the level "
-    #                 "to which they belong.".format(name, self.name)
-    #             )
-    #
-    #     self._fixed_fiducial = fiducial
-    #     self.validate_derived()
-    #
-    #     self._in_active_mode = len(self.child_active_params) > 0
-    #
-
     @cached_property
     def _in_active_mode(self):
         return bool(self.child_active_params)

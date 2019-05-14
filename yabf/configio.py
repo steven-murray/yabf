@@ -2,13 +2,15 @@ import importlib
 import sys
 from os import path
 
-from . import yaml
 from scipy import stats
-#from yamlinclude import YamlIncludeConstructor
 
 from . import Param, LikelihoodContainer, Likelihood, Component, DataLoader, CompositeLoader, Sampler
+from . import yaml
 
-#YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
+
+# from yamlinclude import YamlIncludeConstructor
+
+# YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
 
 
 def _absfile(yml, fname):
@@ -148,16 +150,33 @@ def _import_plugins(config):
         importlib.import_module(module)
 
 
-def _change_base_dir(base_dir):
-    pass
-    # if base_dir:
-    #     yaml.FullLoader.yaml_constructors['!include']._base_dir = base_dir
+def _load_str_or_file(stream):
+    try:
+        st = open(stream)
+        stream = st.read()
+        st.close()
+        file_not_found = False
+    except FileNotFoundError:
+        file_not_found = True
+
+    try:
+        return yaml.load(stream)
+    except Exception as e:
+        if file_not_found:
+            msg = """
+            If you passed a filename, it does not exist. Otherwise, the stream passed
+            has invalid syntax. Passed:
+            
+            {} 
+            """.format(stream)
+        else:
+            msg = """YML file passed has invalid syntax for yabf. {}""".format(e)
+
+        raise Exception("Could not load yabf YML. {}".format(msg))
 
 
-def load_likelihood_from_yaml(stream, name=None, base_dir=None):
-    _change_base_dir(base_dir)
-
-    config = yaml.load(stream)
+def load_likelihood_from_yaml(stream, name=None):
+    config = _load_str_or_file(stream)
 
     # First, check if the thing just loaded in fine (i.e. it was written by YAML
     # on the object itself).
@@ -196,10 +215,8 @@ def _construct_sampler(config, likelihood):
     return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
 
 
-def load_from_yaml(stream, name=None, base_dir=None):
-    _change_base_dir(base_dir)
-
-    config = yaml.load(stream)
+def load_from_yaml(stream, name=None):
+    config = _load_str_or_file(stream)
 
     _import_plugins(config)
 
@@ -211,11 +228,10 @@ def load_from_yaml(stream, name=None, base_dir=None):
     return _construct_sampler(config, likelihood)
 
 
-def load_sampler_from_yaml(stream, likelihood, base_dir=None):
+def load_sampler_from_yaml(stream, likelihood):
     """
     Return a sampler and any sampling arguments specified in the yaml file
     """
-    _change_base_dir(base_dir)
-    config = yaml.load(stream)
+    config = _load_str_or_file(stream)
 
     return _construct_sampler(config, likelihood)

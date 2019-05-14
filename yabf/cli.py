@@ -15,12 +15,14 @@ except:
     HAVE_MPL = False
 
 @click.command()
-@click.argument("yaml_file", type=click.File('r'))
+@click.argument("yaml_file", type=click.Path(exists=True, dir_okay=False))
 @click.option('--plot/--no-plot', default=True)
-@click.option('-s', '--sampler-file', default=None, type=click.File('r'))
+@click.option('-s', '--sampler-file', default=None,
+              type=click.Path(exists=True, dir_okay=False))
 @click.option("-w/-W", '--write/--no-write', default=True)
 @click.option("--prefix", default=None)
-@click.option('-f', '--plot-format', default='pdf', type=click.Choice(['pdf', 'png'], case_sensitive=False))
+@click.option('-f', '--plot-format', default='pdf',
+              type=click.Choice(['pdf', 'png'], case_sensitive=False))
 def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     """Console script for yabf."""
 
@@ -29,10 +31,6 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
         sampler, runkw = load_sampler_from_yaml(sampler_file, likelihood)
     else:
         sampler, runkw = load_from_yaml(yaml_file)
-
-    # yaml_file.close()
-    # if sampler_file:
-    #     sampler_file.close()
 
     mcsamples = sampler.sample(**runkw)
 
@@ -65,7 +63,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
 
     if plot and HAVE_MPL:
         g = plots.getSubplotPlotter()
-        g.triangle_plot(mcsamples, params=list(likelihood.child_active_params.keys()),shaded=True)
+        g.triangle_plot(mcsamples, params=list(likelihood.child_active_params),shaded=True)
 
         if prefix is None:
             prefix = path.splitext(path.basename(yaml_file))[0]
