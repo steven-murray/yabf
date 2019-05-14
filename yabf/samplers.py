@@ -22,6 +22,7 @@ from . import yaml
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
     likelihood = attr.ib(validator=instance_of(Likelihood))
+    _output_dir = attr.ib(default="", validator=instance_of(str))
     _output_prefix = attr.ib(validator=instance_of(str))
     _save_full_config = attr.ib(default=True, converter=bool)
     sampler_kwargs = attr.ib(default={})
@@ -40,13 +41,13 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     @cached_property
     def output_dir(self):
-        dir = os.path.abspath(os.path.dirname(self._output_prefix))
+        dir = os.path.join(self._output_dir, os.path.dirname(self._output_prefix))
 
         # Try to create the directory.
         try:
             os.makedirs(dir)
             warnings.warn("Proposed output directory '{}' did not exist. Created it.".format(dir))
-        except FileExistsError:
+        except (FileExistsError, FileNotFoundError):
             pass
         return dir
 
@@ -132,7 +133,7 @@ class emcee(Sampler):
         # 'samples' is whatever is returned by _sample, in this case it is
         # the entire EnsembleSampler
         return MCSamples(
-            samples=samples.get_chain(flat=False, discard=500),
+            samples=samples.get_chain(flat=False),
             names=[a.name for a in self.likelihood.child_active_params],
             labels=[p.latex for p in self.likelihood.child_active_params]
         )
