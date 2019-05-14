@@ -1,3 +1,4 @@
+import collections
 import importlib
 import sys
 from os import path
@@ -175,8 +176,20 @@ def _load_str_or_file(stream):
         raise Exception("Could not load yabf YML. {}".format(msg))
 
 
-def load_likelihood_from_yaml(stream, name=None):
+def _recursive_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            d[k] = _recursive_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+
+def load_likelihood_from_yaml(stream, name=None, override=None):
     config = _load_str_or_file(stream)
+
+    if override:
+        config = _recursive_update(config, override)
 
     # First, check if the thing just loaded in fine (i.e. it was written by YAML
     # on the object itself).
@@ -197,7 +210,6 @@ def load_likelihood_from_yaml(stream, name=None):
         if name is None:
             name = " ".join([lk.name for lk in likelihoods])
 
-        print("USING NAME: ", name)
         # If any of the external components are non-empty, we need to build a container
         return LikelihoodContainer(
             name=name, components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
@@ -208,15 +220,17 @@ def load_likelihood_from_yaml(stream, name=None):
 
 
 def _construct_sampler(config, likelihood):
-    sampler = Sampler._plugins[config.get("sampler")]
-    init = config.get("init", {})
-    runkw = config.get("sample", {})
+    sampler = Sampler._plugins[config.pop("sampler")]
+    init = config.pop("init", {})
+    runkw = config.pop("sample", {})
 
-    return sampler(likelihood=likelihood, sampler_kwargs=init), runkw
+    return sampler(likelihood=likelihood, sampler_kwargs=init, **config), runkw
 
 
-def load_from_yaml(stream, name=None):
+def load_from_yaml(stream, name=None, override=None):
     config = _load_str_or_file(stream)
+    if override:
+        config = _recursive_update(config, override)
 
     _import_plugins(config)
 
@@ -228,10 +242,12 @@ def load_from_yaml(stream, name=None):
     return _construct_sampler(config, likelihood)
 
 
-def load_sampler_from_yaml(stream, likelihood):
+def load_sampler_from_yaml(stream, likelihood, override=None):
     """
     Return a sampler and any sampling arguments specified in the yaml file
     """
     config = _load_str_or_file(stream)
+    if override:
+        config = _recursive_update(config, override)
 
     return _construct_sampler(config, likelihood)
