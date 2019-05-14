@@ -212,13 +212,14 @@ class ParameterComponent:
 
                 # Now get a full alias, by matching the alias with the list of
                 # child parameter locs
-                matched = 0
+                matched = set()
                 for lc in self._child_parameter_locs:
                     if lc.startswith(loc) and lc.endswith(paramname):
                         full_aliases.append(lc)
-                        matched += 1
 
-                if matched > 1:
+                        matched.add(self.child_base_parameters[self._child_parameter_locs.index(lc)])
+
+                if len(matched) > 1:
                     warnings.warn(
                         "You have passed a parameter alias [{}] which matches "
                         "more than one parameter [{}]. Only information from the first "
