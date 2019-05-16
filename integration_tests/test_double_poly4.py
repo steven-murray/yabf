@@ -32,7 +32,7 @@ if __name__ == "__main__":
     lk_hi = Chi2(
         name='chi2_hi',
         data_seed=1234,
-        x=x,
+        x=x_hi,
         components=(
             Poly(
                 n=4,
