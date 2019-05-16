@@ -11,3 +11,11 @@ yabf/__pycache__/
 
 .rsync_up.sh
 \.coverage
+
+integration_tests/PolyChordChains/
+
+*.pdf
+
+*.png
+
+integration_tests/EmceeChains/
