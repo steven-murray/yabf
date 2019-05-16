@@ -112,7 +112,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
 
         for m,s,p in zip(mean, std, mcsamples.getParamNames().names):
             print("{p}:\t{mean:1.3e} +- {std:1.3e}".format(p=p.name, mean=m, std=s))
-    
+
         if plot and HAVE_MPL:
             g = plots.getSubplotPlotter()
             g.triangle_plot(mcsamples, params=list(likelihood.child_active_params),shaded=True)

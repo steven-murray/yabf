@@ -6,10 +6,12 @@ from collections import OrderedDict
 from copy import copy
 
 import attr
+import numpy as np
+from attr import validators
 from cached_property import cached_property
 
 from .plugin import plugin_mount_factory
-
+from . import mpi
 
 def _only_active(func):
     def func_wrapper(self, *args, **kwargs):
@@ -490,7 +492,7 @@ class ParameterComponent:
         though there are some attributes which are lazy-loaded after instantiation.
         These don't need to be written.
         """
-        return {k:v for k,v in self.__dict__.items() if k in attr.asdict(self)}
+        return {k: v for k, v in self.__dict__.items() if k in attr.asdict(self)}
 
 
 class Component(ParameterComponent, metaclass=plugin_mount_factory()):
@@ -577,11 +579,27 @@ class Component(ParameterComponent, metaclass=plugin_mount_factory()):
 class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
     _data = attr.ib(default=None, kw_only=True)
     components = attr.ib(factory=tuple, converter=tuple, kw_only=True)
+    _data_seed = attr.ib(kw_only=True,
+                         validator=validators.optional(validators.instance_of(int)))
 
     @components.validator
     def _cmp_valid(self, att, val):
         for cmp in val:
             assert isinstance(cmp, Component), "component {} is not a valid Component".format(cmp.name)
+
+    @cached_property
+    def using_mock_data(self):
+        return self._data is None and hasattr(self, "_mock")
+
+    @_data_seed.default
+    def _data_seed_default(self):
+        if self.using_mock_data:
+            print("HERE!", mpi.more_than_one_process)
+            if mpi.more_than_one_process:
+                raise TypeError("if using MPI and auto-generated mock data, data_seed must be set")
+            return np.random.randint(0, 2**32-1)
+        else:
+            return None
 
     @cached_property
     def _subcomponents(self):
@@ -593,6 +611,7 @@ class Likelihood(ParameterComponent, metaclass=plugin_mount_factory()):
             raise AttributeError("You have not passed any data and no mock method found")
 
         if self._data is None and hasattr(self, "_mock"):
+            np.random.seed(self._data_seed)
             self._data = self.mock()
         return self._data
 
