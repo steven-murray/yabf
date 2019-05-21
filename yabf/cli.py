@@ -6,6 +6,7 @@ import sys
 import click
 from . import load_sampler_from_yaml, load_likelihood_from_yaml, load_from_yaml, mpi
 import shutil
+from yabf.core import utils
 
 from os import path
 from getdist import plots
@@ -15,7 +16,7 @@ try:
 except:
     HAVE_MPL = False
 
-YABF = """
+YABF = r"""
  .----------------.  .----------------.  .----------------.  .----------------. 
 | .--------------. || .--------------. || .--------------. || .--------------. |
 | |  ____  ____  | || |      __      | || |   ______     | || |  _________   | |
@@ -43,7 +44,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     """Console script for yabf."""
 
     terminal_width = shutil.get_terminal_size((80, 20))[0]
-    if mpi.am_single_or_primary_process():
+    if mpi.am_single_or_primary_process:
         print("="*terminal_width)
         print(YABF)
         print("-"*terminal_width)
@@ -59,7 +60,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     else:
         sampler, runkw = load_from_yaml(yaml_file, override={"output_prefix": prefix})
 
-    if mpi.am_single_or_primary_process():
+    if mpi.am_single_or_primary_process:
         print(f"Sampler: [{sampler.__class__.__name__}]")
         print(f"\t{sampler.sampler_kwargs}")
         print(f"\t{runkw}")
@@ -70,11 +71,10 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
         print()
         print("Model:")
         print(f"\tComponents.Params: ")
-        for lc in likelihood._child_parameter_locs:
-            print(f"\t\t{lc}\t{likelihood._loc_to_dict_loc(lc, likelihood.fiducial_params)}")
+        for lc in likelihood.child_base_parameter_dct:
+            print(f"\t\t{lc}\t{utils.get_loc_from_dict(likelihood.fiducial_params, lc)}")
 
         print(f"\tFiducial Parameters: {likelihood.fiducial_params}")
-        print(f"\tDerived: {likelihood.derived}")
         print()
 
         print("-"*terminal_width)
@@ -84,7 +84,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     mcsamples = sampler.sample(**runkw)
     mpi.sync_processes()
 
-    if mpi.am_single_or_primary_process():
+    if mpi.am_single_or_primary_process:
         print("Done.\n")
         print("-"*terminal_width)
         print("Basic Chain Diagnostics")

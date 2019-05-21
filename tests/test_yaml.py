@@ -3,7 +3,7 @@ import os
 import pytest
 from yaml.scanner import ScannerError
 
-from yabf import yaml
+from yabf.core import yaml
 
 
 def _write(inner, outer, tmpdir):

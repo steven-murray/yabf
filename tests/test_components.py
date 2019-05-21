@@ -1,6 +1,6 @@
 import pytest
 
-from yabf import Component, Parameter, Param
+from yabf import Component, Param
 from .shared_resources import SimpleComponent
 
 def test_component_plugin():

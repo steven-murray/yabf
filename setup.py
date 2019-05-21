@@ -16,7 +16,8 @@ requirements = [
     "numpy>=1",
     "scipy>=1",
     "pyyaml>=5",
-    "cached_property"
+    "cached_property",
+    'frozendict'
 ]
 
 setup_requirements = [

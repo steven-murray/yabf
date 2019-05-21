@@ -4,41 +4,47 @@ from yabf import Component, Parameter, Likelihood, LikelihoodContainer, Param
 from .shared_resources import SimpleComponent, SimpleLikelihood
 
 
-def test_two_lk_single_external_cmp():
+def test_two_lk_shared_cmp():
+    shared = SimpleComponent(name='shared')
+
     lk = LikelihoodContainer(
         likelihoods=(
             SimpleLikelihood(
-                name="use_external"
+                name="only_shared",
+                components=(
+                    shared,
+                )
             ),
             SimpleLikelihood(
-                name="use_internal",
+                name="shared_and",
                 components=(
-                    SimpleComponent(name="internal"),
+                    SimpleComponent(name="unshared"),
+                    shared
                 )
             )
         ),
-        components=(
-            SimpleComponent(name='external'),
-        )
     )
 
     params = lk._fill_params()
 
-    assert 'use_external' in params
-    assert 'use_internal' in params
-    assert params['use_external']['y'] == 0
-    assert params['use_internal']['y'] == 0
-    assert params['use_internal']['internal']['x'] == 0
+    assert 'only_shared' in params
+    assert 'shared_and' in params
+    assert params['only_shared']['y'] == 0
+    assert params['shared_and']['y'] == 0
+    assert params['shared_and']['unshared']['x'] == 0
 
-    ctx = lk.get_ctx(**params)
-    assert ctx['x2'] == 0
-    assert len(ctx) == 1  # Though there are two components, they overwrite each other.
-    assert lk.logl(**params) == 0
-    print(lk.fiducial_params)
-    assert lk.logl(**{"external.x": 2, "use_external.y": 1}) == -4
-    assert lk.logl(**{"external": {"x": 2}, "use_external": {"y": 1}}) == -4
+    ctx = lk.get_ctx(params=params)
 
-    with pytest.raises(ValueError):
+    assert ctx['only_shared']['x2'] == 0
+    assert len(ctx) == 2  # each likelihood gets an entry
+    assert lk.logl(params=params) == 0
+    assert lk.logl(params={"only_shared.shared.x": 2, "only_shared.y": 1}) == -4
+
+    params=lk._fill_params({"only_shared": {"shared": {"x":2}, "y":1}})
+    print("PARAMS: ", params)
+    assert lk.logl(params={"only_shared": {"shared": {"x":2}, "y": 1}}) == -4
+
+    with pytest.raises(TypeError):
         lk.logl(x=2, y=2)  # x can't be found.
 
 
@@ -51,8 +57,8 @@ def test_two_lk_sharing_a_param():
             Parameter("z", 0, min=-10, max=10),
         ]
 
-        def calculate(self, ctx, **param):
-            return param['x'] ** 2 + param['y'] ** 2 + param['z'] ** 2
+        def calculate(self, ctx, x, y ,z):
+            return x ** 2 + y ** 2 + z ** 2
 
     class ThisLikelihood(Likelihood):
         base_parameters = [
@@ -66,29 +72,33 @@ def test_two_lk_sharing_a_param():
             return -model
 
     lk = LikelihoodContainer(
-        params=[Param('z', fiducial=2), Param("w", fiducial=1)],
         likelihoods=(
             ThisLikelihood(
                 name='small',
+                params = (Param("w", fiducial=1), ),
                 components=[
                     ThisComponent(
                         "small_component",
                         params=(
                             Param('x', fiducial=0),
-                            Param('y', fiducial=0)
+                            Param('y', fiducial=0),
+                            Param('z', fiducial=2),
                         )
                     )
                 ]
             ),
             ThisLikelihood(
                 name='big',
+                params=(Param("w", fiducial=1),),
                 components=[
-                    ThisComponent("large_component",
-                                  params=(
-                                      Param('xx', fiducial=5, alias_for='x'),
-                                      Param('yy', fiducial=5, alias_for='y')
-                                  )
-                                  )
+                    ThisComponent(
+                        "large_component",
+                        params=(
+                            Param('xx', fiducial=5, determines=['x']),
+                            Param('yy', fiducial=5, determines=['y']),
+                            Param('z', fiducial=2),
+                        )
+                    )
                 ]
             )
         )

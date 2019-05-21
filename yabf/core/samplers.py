@@ -14,14 +14,14 @@ from pypolychord.settings import PolyChordSettings
 import os
 import warnings
 
-from . import Likelihood
+from yabf.core.likelihood import LikelihoodInterface
 from .plugin import plugin_mount_factory
-from . import yaml
-
+from yabf.core import yaml
+from . import mpi
 
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
-    likelihood = attr.ib(validator=instance_of(Likelihood))
+    likelihood = attr.ib(validator=instance_of(LikelihoodInterface))
     _output_dir = attr.ib(default="", validator=instance_of(str))
     _output_prefix = attr.ib(validator=instance_of(str))
     _save_full_config = attr.ib(default=True, converter=bool)
@@ -86,6 +86,9 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     def sample(self, **kwargs):
         samples = self._sample(self._sampling_fn, **kwargs)
+
+        mpi.sync_processes()
+
         self.mcsamples = self._samples_to_mcsamples(samples)
         return self.mcsamples
 
@@ -218,5 +221,10 @@ class polychord(Sampler):
         )
 
     def _samples_to_mcsamples(self, samples):
-        self._make_paramnames_files(samples)
+        if mpi.am_single_or_primary_process:
+            self._make_paramnames_files(samples)
+            # do initialization...
+            samples.posterior
+
+        mpi.sync_processes()
         return samples.posterior

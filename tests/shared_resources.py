@@ -17,6 +17,7 @@ class SimpleLikelihood(Likelihood):
     ]
 
     def _reduce(self, ctx, **params):
+        print("x2: {}, y: {}", ctx['x2'], params['y'])
         return ctx['x2'] * params['y']
 
     def lnl(self, model, **params):

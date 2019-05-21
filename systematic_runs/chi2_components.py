@@ -2,19 +2,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from getdist import plots
 from scipy import stats
+import attr
 
 from yabf import Parameter, Likelihood, Component, mpi
-from yabf.samplers import emcee, polychord
+from yabf import samplers
+from cached_property import cached_property
 
-
+@attr.s(frozen=True)
 class Chi2(Likelihood):
     base_parameters = [
         Parameter("sigma", 1, min=0, latex=r"\sigma")
     ]
 
-    def __init__(self, x, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.x = x
+    x = attr.ib(kw_only=True)
 
     def _reduce(self, ctx, **dct):
         model = np.array([v for k, v in ctx.items() if k.endswith("model")])
@@ -33,27 +33,28 @@ class Chi2(Likelihood):
         return lnl
 
 
+@attr.s(frozen=True)
 class LinearComponent(Component):
     base_parameters = [
         Parameter("p0", 1),
         Parameter("p1", 0)
     ]
 
-    def __init__(self, x, **kwargs):
-        self.x = x
-        super().__init__(**kwargs)
+    x = attr.ib(kw_only=True)
 
-        self.provides = [f"{self.name}_model"]
+    @cached_property
+    def provides(self):
+        return [f"{self.name}_model"]
 
     def calculate(self, ctx, **params):
         return params['p0'] * self.x + params['p1']
 
-
+@attr.s(frozen=True)
 class Poly(Component):
-    def __new__(cls, n=5, *args, **kwargs):
+    def __new__(cls, poly_order=5, *args, **kwargs):
         # First create the parameters.
         p = []
-        for i in range(n):
+        for i in range(poly_order):
             p.append(Parameter(f"p{i}", 0, latex=r"p_{}".format(i)))
         cls.base_parameters = tuple(p)
 
@@ -61,13 +62,12 @@ class Poly(Component):
 
         return obj
 
-    def __init__(self, x, n=5, *args, **kwargs):
-        # Need to add n to signature to take it out of the call to __init__
-        self.poly_order = n
-        self.x = x
+    x = attr.ib(kw_only=True)
+    poly_order = attr.ib(5, kw_only=True, converter=int)
 
-        super().__init__(*args, **kwargs)
-        self.provides = [f"{self.name}_model"]
+    @cached_property
+    def provides(self):
+        return [f"{self.name}_model"]
 
     def calculate(self, ctx, **params):
         p = [params[f'p{i}'] for i in range(self.poly_order)]
@@ -76,13 +76,13 @@ class Poly(Component):
 
 def run(sampler, lk, name_sub=""):
     if sampler == "emcee":
-        smp = emcee(
+        smp = samplers.emcee(
             likelihood=lk, output_dir="EmceeChains", output_prefix=f"chi2{name_sub}",
         )
         mcsamples = smp.sample(progress=True, nsteps=2000)
 
     elif sampler == "polychord":
-        smp = polychord(
+        smp = samplers.polychord(
             likelihood=lk, output_dir="PolyChordChains", output_prefix=f"chi2{name_sub}",
             sampler_kwargs={"nlive": 256, "read_resume": False, "precision_criterion":0.1}
         )

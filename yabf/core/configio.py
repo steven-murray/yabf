@@ -1,17 +1,15 @@
-import collections
 import importlib
 import sys
 from os import path
 
 from scipy import stats
 
-from . import Param, LikelihoodContainer, Likelihood, Component, DataLoader, CompositeLoader, Sampler
-from . import yaml
-
-
-# from yamlinclude import YamlIncludeConstructor
-
-# YamlIncludeConstructor.add_to_loader_class(loader_class=yaml.FullLoader)
+from yabf import Param, LikelihoodContainer, Likelihood, Component
+from yabf.core import yaml
+from yabf.core.likelihood import LikelihoodInterface
+from . import utils
+from .io import DataLoader, CompositeLoader
+from .samplers import Sampler
 
 
 def _absfile(yml, fname):
@@ -80,29 +78,43 @@ def _construct_derived(dct):
 
 
 def _construct_fiducial(dct):
-    fiducial = dct.pop("fiducial", {})
-    return fiducial
+    return dct.pop("fiducial", {})
 
 
 def _construct_components(dct):
     comp = dct.get("components", {})
     components = []
 
-    for name, c in comp.items():
+    for name, cmp in comp.items():
         try:
-            cls = Component._plugins[name]
+            cls = cmp['class']
+        except KeyError:
+            raise KeyError("Every component requires a key:val pair of class: class_name")
+
+        try:
+            cls = Component._plugins[cls]
         except KeyError:
             raise ImportError(
                 "The component {} is not importable. Ensure you "
                 "have set the correct import_paths and external_modules".format(name)
             )
 
-        cmp_data = _construct_data(c)
-        params = _construct_params(c)
-        derived = _construct_derived(c)
-        fiducial = _construct_fiducial(c)
+        cmp_data = _construct_data(cmp)
+        params = _construct_params(cmp)
+        derived = _construct_derived(cmp)
+        fiducial = _construct_fiducial(cmp)
+        subcmp = _construct_components(cmp)
 
-        components.append(cls(name=c.get("name", None), params=params, derived=derived, fiducial=fiducial, **cmp_data))
+        components.append(
+            cls(
+                name=name,
+                params=params,
+                derived=derived,
+                fiducial=fiducial,
+                components=subcmp,
+                **cmp_data
+            )
+        )
 
     return components
 
@@ -113,9 +125,9 @@ def _construct_likelihoods(config):
 
     for name, lk in lks.items():
         try:
-            likelihood = lk['likelihood']
+            likelihood = lk['class']
         except KeyError:
-            raise KeyError("Every likelihood requires a key:val pair of likelihood: class_name")
+            raise KeyError("Every likelihood requires a key:val pair of class: class_name")
 
         try:
             cls = Likelihood._plugins[likelihood]
@@ -131,11 +143,13 @@ def _construct_likelihoods(config):
         derived = _construct_derived(lk)
         fiducial = _construct_fiducial(lk)
         components = _construct_components(lk)
+        data_seed = config.get("data_seed", None)
 
         likelihoods.append(
-            cls(name=name,
-                params=params, derived=derived, fiducial=fiducial, data=data,
-                components=components, **kwargs))
+            cls(name=name, params=params, derived=derived, fiducial=fiducial, data=data,
+                data_seed=data_seed, components=components, **kwargs
+                )
+        )
 
     return likelihoods
 
@@ -152,6 +166,8 @@ def _import_plugins(config):
 
 
 def _load_str_or_file(stream):
+    stream_probably_yamlcode = False
+
     try:
         st = open(stream)
         stream = st.read()
@@ -159,7 +175,9 @@ def _load_str_or_file(stream):
         file_not_found = False
     except FileNotFoundError:
         file_not_found = True
-
+    except OSError:
+        stream_probably_yamlcode = True
+        file_not_found = False
     try:
         return yaml.load(stream)
     except Exception as e:
@@ -170,50 +188,36 @@ def _load_str_or_file(stream):
             
             {} 
             """.format(stream)
+        elif stream_probably_yamlcode:
+            msg = """
+            YAML code passed has invalid syntax for yabf.
+            """
         else:
             msg = """YML file passed has invalid syntax for yabf. {}""".format(e)
 
         raise Exception("Could not load yabf YML. {}".format(msg))
 
 
-def _recursive_update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.Mapping):
-            d[k] = _recursive_update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
-
-
 def load_likelihood_from_yaml(stream, name=None, override=None):
     config = _load_str_or_file(stream)
 
     if override:
-        config = _recursive_update(config, override)
+        config = utils.recursive_update(config, override)
 
     # First, check if the thing just loaded in fine (i.e. it was written by YAML
     # on the object itself).
-    if isinstance(config, Likelihood):
+    if isinstance(config, LikelihoodInterface):
         return config
 
     _import_plugins(config)
 
     # Load outer components
     name = config.get("name", name)
-    components = _construct_components(config)
-    derived = _construct_derived(config)
-    fiducial = _construct_fiducial(config)
-    params = _construct_params(config)
     likelihoods = _construct_likelihoods(config)
 
-    if any([len(components), len(derived), len(fiducial), len(params)]) or len(likelihoods) > 1:
-        if name is None:
-            name = " ".join([lk.name for lk in likelihoods])
-
-        # If any of the external components are non-empty, we need to build a container
-        return LikelihoodContainer(
-            name=name, components=components, derived=derived, fiducial=fiducial, params=params, likelihoods=likelihoods
-        )
+    if len(likelihoods) > 1:
+        # Need to build a container
+        return LikelihoodContainer(name=name, likelihoods=likelihoods)
     else:
         # Otherwise just return the only likelihood, which is self-contained.
         return likelihoods[0]
@@ -230,7 +234,7 @@ def _construct_sampler(config, likelihood):
 def load_from_yaml(stream, name=None, override=None):
     config = _load_str_or_file(stream)
     if override:
-        config = _recursive_update(config, override)
+        config = utils.recursive_update(config, override)
 
     _import_plugins(config)
 
@@ -248,6 +252,6 @@ def load_sampler_from_yaml(stream, likelihood, override=None):
     """
     config = _load_str_or_file(stream)
     if override:
-        config = _recursive_update(config, override)
+        config = utils.recursive_update(config, override)
 
     return _construct_sampler(config, likelihood)
