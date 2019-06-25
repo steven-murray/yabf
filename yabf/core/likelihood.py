@@ -262,7 +262,6 @@ class _ComponentTree(ABC):
             except ValueError:
                 raise ValueError("params must be a dict or list with same length as"
                                  "child_active_params (and in that order)")
-
         fiducial = deepcopy(self.fiducial_params)
 
         for k, v in list(params.items()):
@@ -368,7 +367,7 @@ class _ComponentTree(ABC):
         return {k: v for k, v in self.__dict__.items() if k in attr.asdict(self)}
 
 
-@attr.s
+@attr.s(kw_only=True)
 class ParameterComponent(_ComponentTree):
     """
     A base class for named components and likelihoods that take parameters.
@@ -384,6 +383,7 @@ class ParameterComponent(_ComponentTree):
     params: tuple of :class:`~parameters.Params` instances
         Definition of which parameters are to be treated as "active" (i.e. fitted for).
         These parameters receive special status in some methods.
+        Can be a dictionary with parameter names as keys.
     derived: tuple of strings or callables
         A tuple defining which derived parameters may be obtained by calling the
         :func:`derived_quantities` method. If str, there must be a method within
@@ -391,24 +391,32 @@ class ParameterComponent(_ComponentTree):
         arguments which depends on the kind of class this is. It will typically
         be ctx and kwargs for params, or perhaps a model, ctx and params.
     """
+    @staticmethod
+    def param_converter(val):
+        if isinstance(val, collections.abc.Mapping):
+            return tuple([Param(name=k, **v) for k,v in val.items()])
+        else:
+            return val
+
     _name = attr.ib(validator=attr.validators.optional(attr.validators.instance_of(str)))
-    fiducial = attr.ib(factory=frozendict, converter=frozendict, kw_only=True)
-    params = attr.ib(factory=tuple, converter=tuple, kw_only=True)
-    derived = attr.ib(factory=tuple, converter=tuple, kw_only=True)
+    fiducial = attr.ib(factory=frozendict, converter=frozendict)
+    params = attr.ib(factory=tuple, converter=param_converter.__func__)
+    derived = attr.ib(factory=tuple, converter=tuple)
 
     base_parameters = tuple()
 
+
     def __init_subclass__(cls, **kwargs):
-        names = [p.name for p in cls.base_parameters]
-        if len(set(names)) != len(cls.base_parameters):
-            raise ValueError("There are two parameters with the same name in {}: "
-                             "{}".format(cls.__name__, names))
         super().__init_subclass__()
 
     def __attrs_post_init__(self):
         if len(set(self.child_base_parameter_dct.keys())) != len(self.child_base_parameter_dct.keys()):
             raise NameError("One or more of the parameter paths from {} is not unique: "
                             "{}".format(self.name, self.child_base_parameter_dct.keys()))
+
+        if len(self.base_parameter_dct) != len(self.base_parameters):
+            raise ValueError("There are two parameters with the same name in {}: "
+                             "{}".format(self.__class__.__name__, self.base_parameter_dct.keys()))
 
     def _get_subcomponent_names(self):
         return [self.name] + sum(
@@ -438,8 +446,10 @@ class ParameterComponent(_ComponentTree):
                              "in {}:{}".format(self.name, determines))
 
         if any([d not in self.base_parameter_dct for d in determines]):
-            raise ValueError("One or more params do not map to any known Parameter "
-                             "in {}: {}".format(self.name, determines))
+            raise ValueError(
+                "One or more params do not map to any known Parameter in {}: {}. "
+                "Known params: {}".format(self.name, determines,
+                                          list(self.base_parameter_dct.keys())))
 
     @fiducial.validator
     def _fiducial_validator(self, att, value):
@@ -504,7 +514,7 @@ class ParameterComponent(_ComponentTree):
         return mapping
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, kw_only=True)
 class Component(ParameterComponent):
     """
     A component of a likelihood. These are mainly for re-usability, so they
@@ -656,13 +666,12 @@ class LikelihoodInterface(ABC):
         pass
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, kw_only=True)
 class Likelihood(ParameterComponent, LikelihoodInterface):
-    _data = attr.ib(default=None, kw_only=True)
-    components = attr.ib(factory=tuple, converter=tuple, kw_only=True)
-    _data_seed = attr.ib(kw_only=True,
-                         validator=validators.optional(validators.instance_of(int)))
-    _store_data = attr.ib(False, kw_only=True, converter=bool)
+    _data = attr.ib(default=None)
+    components = attr.ib(factory=tuple, converter=tuple)
+    _data_seed = attr.ib(validator=validators.optional(validators.instance_of(int)))
+    _store_data = attr.ib(False, converter=bool)
 
     _plugins = {}
 
@@ -943,5 +952,5 @@ class LikelihoodContainer(LikelihoodInterface, _ComponentTree):
     def __call__(self, params=None):
         params = self._fill_params(params)
         ctx = self.get_ctx(params)
-        model = self.reduce_model(ctx, params)
-        return self.logp(model, params), self.derived_quantities(model, ctx, params)
+        model = self.reduce_model(ctx=ctx, params=params)
+        return self.logp(model=model, params=params), self.derived_quantities(model, ctx, params)
