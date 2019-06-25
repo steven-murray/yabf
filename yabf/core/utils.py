@@ -43,7 +43,10 @@ def add_loc_to_dict(dict, loc, val, raise_if_not_exist=False):
     this = dict
     for i, loc in enumerate(locs):
         if i == imax:
-            this[loc] = val
+            if isinstance(val, collections.abc.Mapping):
+                this[loc].update(val)
+            else:
+                this[loc] = val
 
         else:
             if loc in this:
