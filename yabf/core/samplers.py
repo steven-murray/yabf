@@ -2,22 +2,25 @@
 Module defining the API for Samplers
 """
 
+import os
+import warnings
+
 import attr
-from attr.validators import instance_of
 import numpy as np
 import pypolychord as ppc
+from attr.validators import instance_of
 from cached_property import cached_property
 from emcee import EnsembleSampler
 from getdist import MCSamples
 from pypolychord.priors import UniformPrior
 from pypolychord.settings import PolyChordSettings
-import os
-import warnings
+from scipy.optimize import minimize
 
-from yabf.core.likelihood import LikelihoodInterface
-from .plugin import plugin_mount_factory
 from yabf.core import yaml
+from yabf.core.likelihood import LikelihoodInterface
 from . import mpi
+from .plugin import plugin_mount_factory
+
 
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
@@ -122,8 +125,22 @@ class emcee(Sampler):
     def _get_sampling_fn(self, sampler):
         return sampler.run_mcmc
 
-    def _sample(self, sampling_fn, **kwargs):
-        refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
+    def _sample(self, sampling_fn, downhill_first=False, bounds=None, restart=False,
+                **kwargs):
+
+        if not restart:
+            try:
+                sampling_fn(None, **kwargs)
+                return self._sampler
+            except:
+                pass
+
+        if not downhill_first:
+            refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
+        else:
+            res = run_map(self.likelihood, bounds=bounds)
+            refs = np.random.multivariate_normal(res.x, res.hess_inv,
+                                                 size=(self.nwalkers, len(res.x)))
 
         sampling_fn(
             refs.T,
@@ -156,9 +173,19 @@ class polychord(Sampler):
         return lst
 
     @cached_property
+    def __derived_sample(self):
+        # a bad hack to get a sample of derived quantities
+        # in order to understand the shape of the derived quantities
+        return self.likelihood()[1]
+
+    @cached_property
+    def derived_shapes(self):
+        return [getattr(d, "shape", 0) for d in self.__derived_sample]
+
+    @cached_property
     def nderived(self):
         # this is a bad hack
-        return len(self._flat_array(self.likelihood()[1]))
+        return len(self._flat_array(self.__derived_sample))
 
     @cached_property
     def log_prior_volume(self):
@@ -184,15 +211,37 @@ class polychord(Sampler):
     def posterior(self):
         def posterior(p):
             lnl, derived = self.likelihood(p)
-            return max(lnl + self.log_prior_volume, 0.99 * np.nan_to_num(-np.inf)), np.array(self._flat_array(derived))
+            return max(lnl + self.log_prior_volume, 0.99 * np.nan_to_num(-np.inf)), \
+                   np.array(self._flat_array(derived))
 
         return posterior
+
+    @staticmethod
+    def _index_to_string(*indx):
+        return "_" + "_".join([str(i) for i in indx])
+
+    @staticmethod
+    def _index_to_latex(*indx):
+        return r"_{" + ",".join([str(i) for i in indx]) + r"}"
+
+    def get_derived_paramnames(self):
+        """Creates a list of tuples specifying derived parameter names"""
+        names = []
+        for name, shape in zip(self.likelihood.derived, self.derived_shapes):
+            if shape == 0:
+                names.append((name, name))
+            else:
+                names.extend([
+                    (name + self._index_to_string(*ind),
+                     name + self._index_to_latex(*ind))
+                    for ind in np.ndindex(*shape)])
+        return names
 
     def _make_paramnames_files(self, mcsamples):
         paramnames = [(p.name, p.latex) for p in self.likelihood.child_active_params]
 
         # also have to add derived...
-        paramnames += [(f'der{i}', f'der{i}') for i in range(self.nderived)]
+        paramnames += self.get_derived_paramnames()
         mcsamples.make_paramnames_files(paramnames)
 
     def _get_sampler(self, **kwargs):
@@ -228,3 +277,27 @@ class polychord(Sampler):
 
         mpi.sync_processes()
         return samples.posterior
+
+
+def run_map(likelihood, x0=None, bounds=None):
+    """
+    Run a maximum a-posteriori fit.
+    """
+
+    def objfunc(p):
+        return -likelihood.logp(params=p)
+
+    if x0 is None:
+        x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
+
+    if bounds is None:
+        bounds = []
+        for apar in likelihood.child_active_params:
+            bounds.append((apar.min if apar.min > -np.inf else None,
+                           apar.max if apar.max < np.inf else None))
+
+    elif not bounds:
+        bounds = None
+
+    res = minimize(objfunc, x0, bounds=bounds)
+    return res
