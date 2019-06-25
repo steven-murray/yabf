@@ -23,6 +23,12 @@ def _ensure_float(dct, name):
     if name in dct:
         dct[name] = float(dct[name])
 
+def _construct_dist(dct):
+    _ensure_float(dct, "loc")
+    _ensure_float(dct, "scale")
+
+    return getattr(stats, dct.pop('dist'))(**dct)
+
 
 def _construct_params(dct):
     params = dct.pop("params", {})
@@ -35,12 +41,13 @@ def _construct_params(dct):
         # The ref value needs to be made into a scipy.stats object
         ref = p.pop("ref", None)
         if ref:
-            _ensure_float(ref, "loc")
-            _ensure_float(ref, "scale")
+            ref = _construct_dist(ref)
 
-            ref = getattr(stats, ref.pop('dist'))(**ref)
+        prior = p.pop("prior", None)
+        if prior:
+            prior = _construct_dist(prior)
 
-        parameters.append(Param(pname, ref=ref, **p))
+        parameters.append(Param(pname, prior=prior, ref=ref, **p))
 
     return parameters
 
@@ -104,7 +111,6 @@ def _construct_components(dct):
         derived = _construct_derived(cmp)
         fiducial = _construct_fiducial(cmp)
         subcmp = _construct_components(cmp)
-
         components.append(
             cls(
                 name=name,
@@ -119,7 +125,7 @@ def _construct_components(dct):
     return components
 
 
-def _construct_likelihoods(config):
+def _construct_likelihoods(config, ignore_data=False):
     lks = config.get("likelihoods")
     likelihoods = []
 
@@ -137,7 +143,10 @@ def _construct_likelihoods(config):
                 "have set the correct import_paths and external_modules".format(name)
             )
 
-        data = _construct_data(lk, key="data")
+        if not ignore_data:
+            data = _construct_data(lk, key="data")
+        else:
+            data = None
         kwargs = _construct_data(lk)
         params = _construct_params(lk)
         derived = _construct_derived(lk)
@@ -198,7 +207,7 @@ def _load_str_or_file(stream):
         raise Exception("Could not load yabf YML. {}".format(msg))
 
 
-def load_likelihood_from_yaml(stream, name=None, override=None):
+def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=False):
     config = _load_str_or_file(stream)
 
     if override:
@@ -213,7 +222,8 @@ def load_likelihood_from_yaml(stream, name=None, override=None):
 
     # Load outer components
     name = config.get("name", name)
-    likelihoods = _construct_likelihoods(config)
+
+    likelihoods = _construct_likelihoods(config, ignore_data=ignore_data)
 
     if len(likelihoods) > 1:
         # Need to build a container
@@ -231,7 +241,7 @@ def _construct_sampler(config, likelihood):
     return sampler(likelihood=likelihood, sampler_kwargs=init, **config), runkw
 
 
-def load_from_yaml(stream, name=None, override=None):
+def load_from_yaml(stream, name=None, override=None, ignore_data=False):
     config = _load_str_or_file(stream)
     if override:
         config = utils.recursive_update(config, override)
@@ -239,9 +249,9 @@ def load_from_yaml(stream, name=None, override=None):
     _import_plugins(config)
 
     if type(config.get("likelihoods")) is dict:
-        likelihood = load_likelihood_from_yaml(stream, name)
+        likelihood = load_likelihood_from_yaml(stream, name, ignore_data=ignore_data)
     else:
-        likelihood = load_likelihood_from_yaml(config.get("likelihoods"))
+        likelihood = load_likelihood_from_yaml(config.get("likelihoods"), ignore_data=ignore_data)
 
     return _construct_sampler(config, likelihood)
 

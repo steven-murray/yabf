@@ -75,6 +75,9 @@ class CompositeLoader(DataLoader):
         self.loaders = loaders or DataLoader._plugins.values()
 
     def load(self, data):
+        if not isinstance(data, str):
+            return data
+
         for loader in self.loaders:
             if loader is self.__class__:
                 continue
