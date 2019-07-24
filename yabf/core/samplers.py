@@ -24,7 +24,7 @@ from .plugin import plugin_mount_factory
 
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
-    likelihood = attr.ib(validator=instance_of(LikelihoodInterface))
+    likelihood = attr.ib(validator=[instance_of(LikelihoodInterface)])
     _output_dir = attr.ib(default="", validator=instance_of(str))
     _output_prefix = attr.ib(validator=instance_of(str))
     _save_full_config = attr.ib(default=True, converter=bool)
@@ -37,6 +37,11 @@ class Sampler(metaclass=plugin_mount_factory()):
         if self._save_full_config:
             with open(self.config_filename, 'w') as fl:
                 yaml.dump(self.likelihood, fl)
+
+    @likelihood.validator
+    def _lk_vld(self, attribute, val):
+        assert isinstance(val, LikelihoodInterface), "likelihood must expose a LikelihoodInterface"
+        assert len(val.child_active_params) > 0, "likelihood does not have any active parameters!"
 
     @_output_prefix.default
     def _op_default(self):
