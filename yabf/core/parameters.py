@@ -66,7 +66,7 @@ class Param:
     prior = attr.ib(None, kw_only=True)
     determines = attr.ib(converter=tuplify, kw_only=True,
                          validator=vld.deep_iterable(vld.instance_of(str)))
-    _parameter_mappings = attr.ib(converter=tuple, kw_only=True)
+    _parameter_mappings = attr.ib(converter=tuplify, kw_only=True)
 
     @latex.default
     def _ltx_default(self):

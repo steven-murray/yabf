@@ -126,7 +126,7 @@ class emcee(Sampler):
         return sampler.run_mcmc
 
     def _sample(self, sampling_fn, downhill_first=False, bounds=None, restart=False,
-                **kwargs):
+                refs=None, **kwargs):
 
         if not restart:
             try:
@@ -135,12 +135,13 @@ class emcee(Sampler):
             except:
                 pass
 
-        if not downhill_first:
-            refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
-        else:
-            res = run_map(self.likelihood, bounds=bounds)
-            refs = np.random.multivariate_normal(res.x, res.hess_inv,
-                                                 size=(self.nwalkers, len(res.x)))
+        if refs is None:
+            if not downhill_first:
+                refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
+            else:
+                res = run_map(self.likelihood, bounds=bounds)
+                refs = np.random.multivariate_normal(res.x, res.hess_inv,
+                                                     size=(self.nwalkers, len(res.x)))
 
         sampling_fn(
             refs.T,

@@ -62,8 +62,8 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
 
     if mpi.am_single_or_primary_process:
         print(f"Sampler: [{sampler.__class__.__name__}]")
-        print(f"\t{sampler.sampler_kwargs}")
-        print(f"\t{runkw}")
+        print(f"\tSampler Options: {sampler.sampler_kwargs}")
+        print(f"\tRun Options: {runkw}")
         print(f"\tOutput Directory:\t{sampler.output_dir}")
         print(f"\tOutput Prefix:\t{sampler.output_file_prefix}")
 

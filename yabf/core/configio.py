@@ -47,7 +47,11 @@ def _construct_params(dct):
         if prior:
             prior = _construct_dist(prior)
 
-        parameters.append(Param(pname, prior=prior, ref=ref, **p))
+        pmaps = p.pop("parameter_mappings", None)
+        if pmaps:
+            pmaps = [eval("lambda x: {}".format(pmap)) for pmap in pmaps]
+
+        parameters.append(Param(pname, prior=prior, ref=ref, parameter_mappings = pmaps, **p))
 
     return parameters
 

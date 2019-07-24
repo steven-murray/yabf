@@ -148,18 +148,12 @@ class _ComponentTree(ABC):
         except KeyError:
             raise KeyError("param '{}' does not exist in component named '{}'".format(paramname, cmp.name))
 
-    @cached_property
-    def child_active_params(self):
-        """
-        tuple of all active parameters in this likelihood/component and its
-        sub-components
-
-        Note that this will also check if child-components have params of the same
-        name, and de-duplicate. The child active params will have correct dot-path
-        names to their "determines" locations, and the correct number of mappings.
-        """
+    def get_determination_graph(self):
         p = getattr(self, "active_params", tuple())
 
+        # Create tuple of active parameters that point to the right base param location
+        # from _this_ component. Note, any parameters that are given as referencing
+        # something down-stream from them should also get the correct reference.
         for cmp in self._subcomponents:
             this = tuple(
                 [
@@ -171,6 +165,20 @@ class _ComponentTree(ABC):
             )
 
             p = p + this
+        return p
+
+    @cached_property
+    def child_active_params(self):
+        """
+        tuple of all active parameters in this likelihood/component and its
+        sub-components
+
+        Note that this will also check if child-components have params of the same
+        name, and de-duplicate. The child active params will have correct dot-path
+        names to their "determines" locations, and the correct number of mappings.
+        """
+        p = self.get_determination_graph()
+        print("DETERMINATION GRAPH: ", [(a.name, a.determines) for a in p])
 
         # Group params by name (and check that they're consistent)
         groups = OrderedDict()
@@ -933,6 +941,10 @@ class LikelihoodContainer(LikelihoodInterface, _ComponentTree):
         params = self._fill_params(params)
         logl = self.logl(model, ctx, params)  # this fills the params
         return logl + self.logprior(params)
+
+    @cached_property
+    def derived(self):
+        return sum([lk.derived for lk in self.likelihoods], tuple())
 
     def derived_quantities(self, model=None, ctx=None, params=None):
         params = self._fill_params(params)
