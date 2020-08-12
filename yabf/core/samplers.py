@@ -17,14 +17,14 @@ from pypolychord.settings import PolyChordSettings
 from scipy.optimize import minimize
 
 from yabf.core import yaml
-from yabf.core.likelihood import LikelihoodInterface
+from yabf.core.likelihood import _LikelihoodInterface
 from . import mpi
 from .plugin import plugin_mount_factory
 
 
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
-    likelihood = attr.ib(validator=[instance_of(LikelihoodInterface)])
+    likelihood = attr.ib(validator=[instance_of(_LikelihoodInterface)])
     _output_dir = attr.ib(default="", validator=instance_of(str))
     _output_prefix = attr.ib(validator=instance_of(str))
     _save_full_config = attr.ib(default=True, converter=bool)
@@ -35,13 +35,17 @@ class Sampler(metaclass=plugin_mount_factory()):
 
         # Save the configuration
         if self._save_full_config:
-            with open(self.config_filename, 'w') as fl:
+            with open(self.config_filename, "w") as fl:
                 yaml.dump(self.likelihood, fl)
 
     @likelihood.validator
     def _lk_vld(self, attribute, val):
-        assert isinstance(val, LikelihoodInterface), "likelihood must expose a LikelihoodInterface"
-        assert len(val.child_active_params) > 0, "likelihood does not have any active parameters!"
+        assert isinstance(
+            val, _LikelihoodInterface
+        ), "likelihood must expose a _LikelihoodInterface"
+        assert (
+            len(val.child_active_params) > 0
+        ), "likelihood does not have any active parameters!"
 
     @_output_prefix.default
     def _op_default(self):
@@ -54,7 +58,9 @@ class Sampler(metaclass=plugin_mount_factory()):
         # Try to create the directory.
         try:
             os.makedirs(dir)
-            warnings.warn("Proposed output directory '{}' did not exist. Created it.".format(dir))
+            warnings.warn(
+                "Proposed output directory '{}' did not exist. Created it.".format(dir)
+            )
         except (FileExistsError, FileNotFoundError):
             pass
         return dir
@@ -109,7 +115,6 @@ class Sampler(metaclass=plugin_mount_factory()):
 
 
 class emcee(Sampler):
-
     @cached_property
     def nwalkers(self):
         return self.sampler_kwargs.pop("nwalkers", self.nparams * 2)
@@ -117,8 +122,8 @@ class emcee(Sampler):
     def _get_sampler(self, **kwargs):
         # This is bad, but I have to access this before passing kwargs,
         # otherwise nwalkers is passed twice.
-        if 'nwalkers' in kwargs:
-            del kwargs['nwalkers']
+        if "nwalkers" in kwargs:
+            del kwargs["nwalkers"]
 
         return EnsembleSampler(
             log_prob_fn=self.likelihood,
@@ -130,14 +135,21 @@ class emcee(Sampler):
     def _get_sampling_fn(self, sampler):
         return sampler.run_mcmc
 
-    def _sample(self, sampling_fn, downhill_first=False, bounds=None, restart=False,
-                refs=None, **kwargs):
+    def _sample(
+        self,
+        sampling_fn,
+        downhill_first=False,
+        bounds=None,
+        restart=False,
+        refs=None,
+        **kwargs
+    ):
 
         if not restart:
             try:
                 sampling_fn(None, **kwargs)
                 return self._sampler
-            except:
+            except Exception:
                 pass
 
         if refs is None:
@@ -145,13 +157,11 @@ class emcee(Sampler):
                 refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
             else:
                 res = run_map(self.likelihood, bounds=bounds)
-                refs = np.random.multivariate_normal(res.x, res.hess_inv,
-                                                     size=(self.nwalkers, len(res.x)))
+                refs = np.random.multivariate_normal(
+                    res.x, res.hess_inv, size=(self.nwalkers,)
+                )
 
-        sampling_fn(
-            refs.T,
-            **kwargs
-        )
+        sampling_fn(refs, **kwargs)
 
         return self._sampler
 
@@ -161,7 +171,7 @@ class emcee(Sampler):
         return MCSamples(
             samples=samples.get_chain(flat=False),
             names=[a.name for a in self.likelihood.child_active_params],
-            labels=[p.latex for p in self.likelihood.child_active_params]
+            labels=[p.latex for p in self.likelihood.child_active_params],
         )
 
 
@@ -217,8 +227,10 @@ class polychord(Sampler):
     def posterior(self):
         def posterior(p):
             lnl, derived = self.likelihood(p)
-            return max(lnl + self.log_prior_volume, 0.99 * np.nan_to_num(-np.inf)), \
-                   np.array(self._flat_array(derived))
+            return (
+                max(lnl + self.log_prior_volume, 0.99 * np.nan_to_num(-np.inf)),
+                np.array(self._flat_array(derived)),
+            )
 
         return posterior
 
@@ -237,10 +249,15 @@ class polychord(Sampler):
             if shape == 0:
                 names.append((name, name))
             else:
-                names.extend([
-                    (name + self._index_to_string(*ind),
-                     name + self._index_to_latex(*ind))
-                    for ind in np.ndindex(*shape)])
+                names.extend(
+                    [
+                        (
+                            name + self._index_to_string(*ind),
+                            name + self._index_to_latex(*ind),
+                        )
+                        for ind in np.ndindex(*shape)
+                    ]
+                )
         return names
 
     def _make_paramnames_files(self, mcsamples):
@@ -252,16 +269,25 @@ class polychord(Sampler):
 
     def _get_sampler(self, **kwargs):
         if "file_root" in kwargs:
-            warnings.warn("file_root was defined in sampler_kwargs, but is replaced by output_prefix")
-            del kwargs['file_root']
+            warnings.warn(
+                "file_root was defined in sampler_kwargs, "
+                "but is replaced by output_prefix"
+            )
+            del kwargs["file_root"]
 
         if "base_dir" in kwargs:
-            warnings.warn("base_dir was defined in sampler_kwargs, but is replaced by output_prefix")
-            del kwargs['base_dir']
+            warnings.warn(
+                "base_dir was defined in sampler_kwargs, "
+                "but is replaced by output_prefix"
+            )
+            del kwargs["base_dir"]
 
         return PolyChordSettings(
-            self.nparams, self.nderived, base_dir=self.output_dir,
-            file_root=self.output_file_prefix, **kwargs
+            self.nparams,
+            self.nderived,
+            base_dir=self.output_dir,
+            file_root=self.output_file_prefix,
+            **kwargs
         )
 
     def _get_sampling_fn(self, sampler):
@@ -271,8 +297,11 @@ class polychord(Sampler):
         settings = self._sampler
 
         return sampling_fn(
-            self.posterior, self.nparams, self.nderived,
-            settings=settings, prior=self.prior
+            self.posterior,
+            self.nparams,
+            self.nderived,
+            settings=settings,
+            prior=self.prior,
         )
 
     def _samples_to_mcsamples(self, samples):
@@ -285,7 +314,7 @@ class polychord(Sampler):
         return samples.posterior
 
 
-def run_map(likelihood, x0=None, bounds=None):
+def run_map(likelihood, x0=None, bounds=None, **kwargs):
     """
     Run a maximum a-posteriori fit.
     """
@@ -299,11 +328,15 @@ def run_map(likelihood, x0=None, bounds=None):
     if bounds is None:
         bounds = []
         for apar in likelihood.child_active_params:
-            bounds.append((apar.min if apar.min > -np.inf else None,
-                           apar.max if apar.max < np.inf else None))
+            bounds.append(
+                (
+                    apar.min if apar.min > -np.inf else None,
+                    apar.max if apar.max < np.inf else None,
+                )
+            )
 
     elif not bounds:
         bounds = None
 
-    res = minimize(objfunc, x0, bounds=bounds)
+    res = minimize(objfunc, x0, bounds=bounds, **kwargs)
     return res

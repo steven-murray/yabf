@@ -1,4 +1,4 @@
-from chi2_components import LinearComponent, Chi2, run, Poly
+from chi2_components import Chi2, run, Poly
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
@@ -13,18 +13,18 @@ if __name__ == "__main__":
     x = np.linspace(0, 10, 100)
 
     lk = Chi2(
-        x = x,
+        x=x,
         data_seed=4321,
         components=(
             Poly(
                 poly_order=4,
                 x=x,
                 params=(
-                    Param('p0', fiducial=4, min=-10, max=10, ref=stats.norm(4, 1)),
-                    Param('p1', fiducial=3, min=-10, max=10, ref=stats.norm(3, 1)),
-                    Param('p2', fiducial=2, min=-10, max=10, ref=stats.norm(2, 1)),
-                    Param('p3', fiducial=1, min=-10, max=10, ref=stats.norm(1, 1)),
-                )
+                    Param("p0", fiducial=4, min=-10, max=10, ref=stats.norm(4, 1)),
+                    Param("p1", fiducial=3, min=-10, max=10, ref=stats.norm(3, 1)),
+                    Param("p2", fiducial=2, min=-10, max=10, ref=stats.norm(2, 1)),
+                    Param("p3", fiducial=1, min=-10, max=10, ref=stats.norm(1, 1)),
+                ),
             ),
         ),
     )
@@ -32,10 +32,14 @@ if __name__ == "__main__":
     mean = run(sampler, lk, "_single_poly4")
 
     if mpi.am_single_or_primary_process:
-        fig, ax = plt.subplots(1, 2, sharex=True, gridspec_kw={"hspace": 0.05}, figsize=(15, 10))
+        fig, ax = plt.subplots(
+            1, 2, sharex=True, gridspec_kw={"hspace": 0.05}, figsize=(15, 10)
+        )
 
         ax[0].plot(lk.x, lk.data, label="Data")
-        ax[0].plot(lk.x, lk.reduce_model(params=lk.fiducial_params), label="True Params")
+        ax[0].plot(
+            lk.x, lk.reduce_model(params=lk.fiducial_params), label="True Params"
+        )
         ax[1].plot(lk.x, lk.data - lk.reduce_model(params=lk.fiducial_params))
 
         meanpar = lk._fill_params(lk._parameter_list_to_dict(mean))

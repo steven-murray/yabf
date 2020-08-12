@@ -11,9 +11,10 @@ def plugin_mount_factory():
     -------
 
     """
+
     class PluginMount(type):
         def __init__(cls, name, bases, attrs):
-            if not hasattr(cls, '_plugins'):
+            if not hasattr(cls, "_plugins"):
                 cls._plugins = {}
             else:
                 cls._plugins[cls.__name__] = cls
@@ -22,4 +23,3 @@ def plugin_mount_factory():
             return cls._plugins[cls.__name__](*args, **kwargs)
 
     return PluginMount
-

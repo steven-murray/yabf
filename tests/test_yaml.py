@@ -7,9 +7,9 @@ from yabf.core import yaml
 
 
 def _write(inner, outer, tmpdir):
-    with open(os.path.join(tmpdir, "outer.yml"), 'w') as fl:
+    with open(os.path.join(tmpdir, "outer.yml"), "w") as fl:
         fl.write(outer)
-    with open(os.path.join(tmpdir, "inner.yml"), 'w') as fl:
+    with open(os.path.join(tmpdir, "inner.yml"), "w") as fl:
         fl.write(inner)
 
 
@@ -22,11 +22,11 @@ def _load(tmpdir):
 def test_include(tmpdir):
     outer = """
 !include inner.yml
-this: that    
+this: that
     """
 
     inner = """
-inner: inner    
+inner: inner
     """
 
     _write(inner, outer, tmpdir)
@@ -50,16 +50,16 @@ params:
 
     _write(inner, outer, tmpdir)
     stuff = _load(tmpdir)
-    assert 'params' in stuff
-    assert stuff['params'][0] == {"inner": "inner"}
+    assert "params" in stuff
+    assert stuff["params"][0] == {"inner": "inner"}
 
-    inner = '''
-- inner    
-    '''
+    inner = """
+- inner
+    """
 
     _write(inner, outer, tmpdir)
     stuff = _load(tmpdir)
-    assert len(stuff['params']) == 2
+    assert len(stuff["params"]) == 2
 
 
 def test_hard_include(tmpdir):
@@ -70,24 +70,24 @@ dct:
     """
 
     inner = """
-b: this    
+b: this
     """
 
     _write(inner, outer, tmpdir)
     stuff = _load(tmpdir)
-    assert stuff['dct'] == {'a': "another", "b": "this"}
+    assert stuff["dct"] == {"a": "another", "b": "this"}
 
     outer = """
 - !include_here inner.yml
 - this
 - that
-- the other    
+- the other
     """
 
     inner = """
-- those        
+- those
     """
 
     _write(inner, outer, tmpdir)
     stuff = _load(tmpdir)
-    assert stuff == ['those', 'this', 'that', 'the other']
+    assert stuff == ["those", "this", "that", "the other"]

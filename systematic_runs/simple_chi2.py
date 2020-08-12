@@ -19,9 +19,9 @@ if __name__ == "__main__":
             LinearComponent(
                 x=x,
                 params=(
-                    Param('p0', fiducial=2, min=-10, max=10, ref=stats.norm(0, 1)),
-                    Param('p1', fiducial=3, min=-10, max=10, ref=stats.norm(3, 1)),
-                )
+                    Param("p0", fiducial=2, min=-10, max=10, ref=stats.norm(0, 1)),
+                    Param("p1", fiducial=3, min=-10, max=10, ref=stats.norm(3, 1)),
+                ),
             ),
         ),
     )

@@ -28,12 +28,12 @@ class DictLoader(DataLoader):
 class PickleLoader(DataLoader):
     def load(self, data):
         try:
-            with open(data, 'rb') as f:
+            with open(data, "rb") as f:
                 data = pickle.load(f)
             return data
         except FileNotFoundError:
             raise
-        except:
+        except Exception:
             raise LoadError()
 
 
@@ -44,7 +44,7 @@ class npzLoader(DataLoader):
             return data
         except FileNotFoundError:
             raise
-        except:
+        except Exception:
             raise LoadError()
 
 
@@ -55,7 +55,7 @@ class npyLoader(DataLoader):
             return data
         except FileNotFoundError:
             raise
-        except:
+        except Exception:
             raise LoadError()
 
 
@@ -70,7 +70,6 @@ class ValueLoader(DataLoader):
 
 
 class CompositeLoader(DataLoader):
-
     def __init__(self, loaders=None):
         self.loaders = loaders or DataLoader._plugins.values()
 
@@ -87,4 +86,6 @@ class CompositeLoader(DataLoader):
             except LoadError:
                 pass
 
-        raise LoadError("None of the specified loaders were able to load the data: {}".format(data))
+        raise LoadError(
+            "None of the specified loaders were able to load the data: {}".format(data)
+        )

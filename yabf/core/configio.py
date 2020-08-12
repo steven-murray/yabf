@@ -6,7 +6,7 @@ from scipy import stats
 
 from yabf import Param, LikelihoodContainer, Likelihood, Component
 from yabf.core import yaml
-from yabf.core.likelihood import LikelihoodInterface
+from yabf.core.likelihood import _LikelihoodInterface
 from . import utils
 from .io import DataLoader, CompositeLoader
 from .samplers import Sampler
@@ -23,11 +23,12 @@ def _ensure_float(dct, name):
     if name in dct:
         dct[name] = float(dct[name])
 
+
 def _construct_dist(dct):
     _ensure_float(dct, "loc")
     _ensure_float(dct, "scale")
 
-    return getattr(stats, dct.pop('dist'))(**dct)
+    return getattr(stats, dct.pop("dist"))(**dct)
 
 
 def _construct_params(dct):
@@ -35,8 +36,8 @@ def _construct_params(dct):
 
     parameters = []
     for pname, p in params.items():
-        _ensure_float(p, 'min')
-        _ensure_float(p, 'max')
+        _ensure_float(p, "min")
+        _ensure_float(p, "max")
 
         # The ref value needs to be made into a scipy.stats object
         ref = p.pop("ref", None)
@@ -51,18 +52,18 @@ def _construct_params(dct):
         if pmaps:
             pmaps = [eval("lambda x: {}".format(pmap)) for pmap in pmaps]
 
-        parameters.append(Param(pname, prior=prior, ref=ref, parameter_mappings = pmaps, **p))
+        parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
 
     return parameters
 
 
 def _construct_data(dct, key="kwargs"):
-    if key not in ['kwargs', 'data']:
+    if key not in ["kwargs", "data"]:
         raise ValueError("key must be 'kwargs' or 'data'")
 
     loader = DataLoader._plugins[dct.pop("data_loader", "CompositeLoader")]
 
-    if key == 'data' and key not in dct:
+    if key == "data" and key not in dct:
         return None
 
     data_dct = dct.get(key, {})
@@ -98,9 +99,11 @@ def _construct_components(dct):
 
     for name, cmp in comp.items():
         try:
-            cls = cmp['class']
+            cls = cmp["class"]
         except KeyError:
-            raise KeyError("Every component requires a key:val pair of class: class_name")
+            raise KeyError(
+                "Every component requires a key:val pair of class: class_name"
+            )
 
         try:
             cls = Component._plugins[cls]
@@ -122,7 +125,7 @@ def _construct_components(dct):
                 derived=derived,
                 fiducial=fiducial,
                 components=subcmp,
-                **cmp_data
+                **cmp_data,
             )
         )
 
@@ -135,9 +138,11 @@ def _construct_likelihoods(config, ignore_data=False):
 
     for name, lk in lks.items():
         try:
-            likelihood = lk['class']
+            likelihood = lk["class"]
         except KeyError:
-            raise KeyError("Every likelihood requires a key:val pair of class: class_name")
+            raise KeyError(
+                "Every likelihood requires a key:val pair of class: class_name"
+            )
 
         try:
             cls = Likelihood._plugins[likelihood]
@@ -159,9 +164,16 @@ def _construct_likelihoods(config, ignore_data=False):
         data_seed = config.get("data_seed", None)
 
         likelihoods.append(
-            cls(name=name, params=params, derived=derived, fiducial=fiducial, data=data,
-                data_seed=data_seed, components=components, **kwargs
-                )
+            cls(
+                name=name,
+                params=params,
+                derived=derived,
+                fiducial=fiducial,
+                data=data,
+                data_seed=data_seed,
+                components=components,
+                **kwargs,
+            )
         )
 
     return likelihoods
@@ -170,8 +182,8 @@ def _construct_likelihoods(config, ignore_data=False):
 def _import_plugins(config):
     # First set import paths and import libraries
     paths = config.get("import_paths", [])
-    for path in paths:
-        sys.path.append(path)
+    for pth in paths:
+        sys.path.append(pth)
 
     modules = config.get("external_modules", [])
     for module in modules:
@@ -195,20 +207,20 @@ def _load_str_or_file(stream):
         return yaml.load(stream)
     except Exception as e:
         if file_not_found:
-            msg = """
+            msg = f"""
             If you passed a filename, it does not exist. Otherwise, the stream passed
-            has invalid syntax. Passed:
-            
-            {} 
-            """.format(stream)
+            has invalid syntax. Passed
+
+            {stream}
+            """
         elif stream_probably_yamlcode:
             msg = """
             YAML code passed has invalid syntax for yabf.
             """
         else:
-            msg = """YML file passed has invalid syntax for yabf. {}""".format(e)
+            msg = f"""YML file passed has invalid syntax for yabf. {e}"""
 
-        raise Exception("Could not load yabf YML. {}".format(msg))
+        raise Exception(f"Could not load yabf YML. {msg}")
 
 
 def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=False):
@@ -219,7 +231,7 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
 
     # First, check if the thing just loaded in fine (i.e. it was written by YAML
     # on the object itself).
-    if isinstance(config, LikelihoodInterface):
+    if isinstance(config, _LikelihoodInterface):
         return config
 
     _import_plugins(config)
@@ -255,7 +267,9 @@ def load_from_yaml(stream, name=None, override=None, ignore_data=False):
     if type(config.get("likelihoods")) is dict:
         likelihood = load_likelihood_from_yaml(stream, name, ignore_data=ignore_data)
     else:
-        likelihood = load_likelihood_from_yaml(config.get("likelihoods"), ignore_data=ignore_data)
+        likelihood = load_likelihood_from_yaml(
+            config.get("likelihoods"), ignore_data=ignore_data
+        )
 
     return _construct_sampler(config, likelihood)
 

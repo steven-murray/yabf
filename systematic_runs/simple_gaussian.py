@@ -13,18 +13,21 @@ from yabf import Likelihood, Parameter
 class SimpleGaussian(Likelihood):
     base_parameters = [
         Parameter("mu", 0, latex=r"\mu"),
-        Parameter("sigma", 1, min=0, latex=r"\sigma")
+        Parameter("sigma", 1, min=0, latex=r"\sigma"),
     ]
 
-    ndata = attr.ib(100, converter=int, validator=attr.validators.instance_of(int),
-                    kw_only=True)
+    ndata = attr.ib(
+        100, converter=int, validator=attr.validators.instance_of(int), kw_only=True
+    )
 
     def _mock(self, model, **params):
         print(params)
-        return np.random.normal(loc=params['mu'], scale=params['sigma'], size=self.ndata)
+        return np.random.normal(
+            loc=params["mu"], scale=params["sigma"], size=self.ndata
+        )
 
     def lnl(self, model, **params):
-        nm = stats.norm(loc=params['mu'], scale=params['sigma'])
+        nm = stats.norm(loc=params["mu"], scale=params["sigma"])
 
         lnl = np.sum(nm.logpdf(self.data))
         if np.isnan(lnl):
@@ -43,9 +46,9 @@ if __name__ == "__main__":
         ndata=10000,
         data_seed=1234,
         params=(
-            Param('mu', min=-10, max=10, ref=stats.norm(0, 1)),
-            Param("sigma", max=10, ref=stats.norm(1, 0.1))
-        )
+            Param("mu", min=-10, max=10, ref=stats.norm(0, 1)),
+            Param("sigma", max=10, ref=stats.norm(1, 0.1)),
+        ),
     )
 
     run(sampler, lk, name_sub="_simple_gaussian")

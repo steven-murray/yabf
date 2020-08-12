@@ -8,20 +8,19 @@ import logging
 import os.path
 
 import yaml
-from yaml import *
+from yaml import *  # noqa
 
 log = logging.getLogger(__name__)
 
 
 class ExtLoaderMeta(type):
-
     def __new__(mcs, __name__, __bases__, __dict__):
         """Add include constructor to class."""
 
         # register the include constructor on the class
         cls = super().__new__(mcs, __name__, __bases__, __dict__)
-        cls.add_constructor('!include', cls.construct_include)
-        cls.add_constructor('!include_here', cls.construct_include_here)
+        cls.add_constructor("!include", cls.construct_include)
+        cls.add_constructor("!include_here", cls.construct_include_here)
 
         return cls
 
@@ -42,27 +41,27 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
     def construct_include(self, node):
         """Include file referenced at node."""
 
-        filename = os.path.abspath(os.path.join(
-            self._root, self.construct_scalar(node)
-        ))
-        extension = os.path.splitext(filename)[1].lstrip('.')
+        filename = os.path.abspath(
+            os.path.join(self._root, self.construct_scalar(node))
+        )
+        extension = os.path.splitext(filename)[1].lstrip(".")
 
-        with open(filename, 'r') as f:
-            if extension in ('yaml', 'yml'):
+        with open(filename, "r") as f:
+            if extension in ("yaml", "yml"):
                 return yaml.load(f, ExtLoader)
             else:
-                return ''.join(f.readlines())
+                return "".join(f.readlines())
 
     def construct_include_here(self, node):
         """Include file referenced at node."""
 
-        filename = os.path.abspath(os.path.join(
-            self._root, self.construct_scalar(node)
-        ))
-        extension = os.path.splitext(filename)[1].lstrip('.')
+        filename = os.path.abspath(
+            os.path.join(self._root, self.construct_scalar(node))
+        )
+        extension = os.path.splitext(filename)[1].lstrip(".")
 
-        with open(filename, 'r') as f:
-            if extension in ('yaml', 'yml'):
+        with open(filename, "r") as f:
+            if extension in ("yaml", "yml"):
                 out = yaml.load(f, ExtLoader)
                 if isinstance(out, list):
                     out.append("__del__")
@@ -71,7 +70,7 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
 
                 return out
             else:
-                return ''.join(f.readlines())
+                return "".join(f.readlines())
 
 
 def _move_up(obj, parent=None, indx=None):
