@@ -10,5 +10,6 @@ from .core.configio import (  # noqa
     load_from_yaml,
     load_sampler_from_yaml,
 )
+from .core.samplers import run_map, emcee, polychord  # noqa
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"

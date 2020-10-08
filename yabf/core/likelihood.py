@@ -5,6 +5,7 @@ Framework for MCMC Likelihoods.
 import collections
 from abc import ABC
 from copy import deepcopy
+import logging
 
 import attr
 import numpy as np
@@ -14,6 +15,8 @@ from cached_property import cached_property
 from . import mpi
 from . import utils
 from .component import Component, ParameterComponent, _ComponentTree
+
+logger = logging.getLogger(__name__)
 
 
 class _LikelihoodInterface(ABC):
@@ -352,9 +355,12 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         return prior
 
     def logp(self, model=None, ctx=None, params=None):
+        logger.info(f"Params: {params}")
         params = self._fill_params(params)
         logl = self.logl(model, ctx, params)  # this fills the params
-        return logl + self.logprior(params)
+        logprior = self.logprior(params)
+        logger.info(f"logl: {logl}, prior: {logprior}")
+        return logl + logprior
 
     @cached_property
     def derived(self):
@@ -393,6 +399,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         return mock
 
     def __call__(self, params=None, ctx=None):
+
         params = self._fill_params(params)
         if ctx is None:
             ctx = self.get_ctx(params)

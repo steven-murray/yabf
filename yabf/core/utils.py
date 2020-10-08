@@ -31,7 +31,7 @@ def get_loc_from_dict(dct, loc):
             try:
                 d = d[l]
             except KeyError:
-                raise KeyError("loc {} does not exist in dict {}".format(loc, dct))
+                raise KeyError(f"loc {loc} does not exist in dict {dct}")
 
         return d
 
@@ -44,20 +44,17 @@ def add_loc_to_dict(dict, loc, val, raise_if_not_exist=False):
     for i, loc in enumerate(locs):
         if i == imax:
             if isinstance(val, collections.abc.Mapping):
-                this[loc].update(val)
+                this[loc] = recursive_update(this[loc], val)
             else:
                 this[loc] = val
 
         else:
-            if loc in this:
-                this = this[loc]
-            else:
+            if loc not in this:
                 if raise_if_not_exist:
-                    raise KeyError("{} not in dict".format(loc))
+                    raise KeyError(f"{loc} not in dict")
 
                 this[loc] = {}
-                this = this[loc]
-
+            this = this[loc]
     return dict
 
 

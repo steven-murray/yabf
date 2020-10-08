@@ -325,13 +325,14 @@ def run_map(likelihood, x0=None, bounds=None, **kwargs):
     if x0 is None:
         x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
 
+    eps = kwargs.get("options", {}).get("eps", 1e-8)
     if bounds is None:
         bounds = []
         for apar in likelihood.child_active_params:
             bounds.append(
                 (
-                    apar.min if apar.min > -np.inf else None,
-                    apar.max if apar.max < np.inf else None,
+                    apar.min + 2 * eps if apar.min > -np.inf else None,
+                    apar.max - 2 * eps if apar.max < np.inf else None,
                 )
             )
 

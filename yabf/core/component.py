@@ -201,13 +201,9 @@ class _ComponentTree(ABC):
                     #       check properly. This will just use the first entry silently.
                     if getattr(param, item) != getattr(that, item):
                         raise ValueError(
-                            "two params with name '{}' provided with different {} "
-                            "values: ({}, {})".format(
-                                param.name,
-                                item,
-                                getattr(param, item),
-                                getattr(that, item),
-                            )
+                            f"two params with name '{param.name}' provided with "
+                            f"different {item} values: ({getattr(param, item)}, "
+                            f"{getattr(that, item)})"
                         )
                 groups[param.name].append(param)
             else:
@@ -224,9 +220,7 @@ class _ComponentTree(ABC):
                     attr.evolve(
                         params[0],
                         determines=sum((list(p.determines) for p in params), []),
-                        parameter_mappings=sum(
-                            (list(p._parameter_mappings) for p in params), []
-                        ),
+                        transforms=sum((list(p.transforms) for p in params), []),
                     )
                 )
 
@@ -301,11 +295,10 @@ class _ComponentTree(ABC):
                 params = self._parameter_list_to_dict(params, transform=transform)
             except ValueError:
                 raise ValueError(
-                    "params must be a dict or list with same length as"
-                    "child_active_params (and in that order). \n"
-                    "Active params: {}\nReceived Params: {}".format(
-                        self.child_active_param_dct.keys(), params
-                    )
+                    f"params must be a dict or list with same length as"
+                    f"child_active_params (and in that order). \n"
+                    f"Active params: {self.child_active_param_dct.keys()}\n"
+                    f"Received Params: {params}"
                 )
 
         for k, v in list(params.items()):
@@ -636,7 +629,7 @@ class Component(ParameterComponent):
         for cmp in val:
             assert isinstance(
                 cmp, Component
-            ), "component {} is not a valid Component".format(cmp.name)
+            ), f"component {cmp.name} is not a valid Component"
 
     def derived_quantities(self, ctx=None, params=None):
         if ctx is None:
@@ -694,18 +687,24 @@ class Component(ParameterComponent):
             if cmp.name in ignore_components:
                 if any(name not in ctx for name in cmp.provides):
                     raise ValueError(
-                        "attempting to ignore component '{}' in '{}' without providing "
-                        "appropriate context".format(cmp.name, self.name)
+                        f"attempting to ignore component '{cmp.name}' in '{self.name}' "
+                        f"without providing appropriate context"
                     )
                 continue
             else:
-                ctx.update(
-                    cmp(
-                        params=params[cmp.name],
-                        ctx=ctx,
-                        ignore_components=ignore_components,
+                try:
+                    ctx.update(
+                        cmp(
+                            params=params[cmp.name],
+                            ctx=ctx,
+                            ignore_components=ignore_components,
+                        )
                     )
-                )
+                except KeyError:
+                    raise KeyError(
+                        f"In component '{self.name}' params does not have key "
+                        f"'{cmp.name}'. Available: {list(params.keys())}"
+                    )
 
         res = self.calculate(ctx, **params)
 
@@ -721,10 +720,10 @@ class Component(ParameterComponent):
 
             if len(self.provides) != len(res):
                 raise ValueError(
-                    "{} does not return an ordered iterable of the same length "
-                    "as its 'provides' attribute from calculate()".format(
-                        self.__class__.__name__
-                    )
+                    f"{self.name} [{self.__class__.__name__}] does not return an "
+                    f"ordered iterable of the same length as its 'provides' attribute "
+                    f"from calculate(). Provides: {self.provides}. Returned elements: "
+                    f"{len(res)}."
                 )
 
             ctx.update({p: r for p, r in zip(self.provides, res)})
