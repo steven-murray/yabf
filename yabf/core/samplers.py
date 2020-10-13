@@ -12,12 +12,14 @@ from getdist import MCSamples
 from pathlib import Path
 from pypolychord.priors import UniformPrior
 from pypolychord.settings import PolyChordSettings
+from scipy.optimize import curve_fit as _curve_fit
 from scipy.optimize import minimize
 
 from yabf.core import yaml
 from yabf.core.likelihood import _LikelihoodInterface
 
 from . import mpi
+from .likelihood import Likelihood
 from .plugin import plugin_mount_factory
 
 
@@ -340,4 +342,51 @@ def run_map(likelihood, x0=None, bounds=None, **kwargs):
         bounds = None
 
     res = minimize(objfunc, x0, bounds=bounds, **kwargs)
+    return res
+
+
+def curve_fit(likelihood: Likelihood, x0=None, bounds=None, **kwargs):
+    """Use scipy's curve_fit to do LM to find the MAP.
+
+    Parameters
+    ----------
+    likelihood
+        In this case the likelihood must be a subclass of Chi2.
+    x0
+        The initial guess
+    bounds
+        A list of tuples of parameters bounds, or False if no bounds are to be set. If
+        None, use the min/max bounds on each parameter in the likelihood.
+    """
+
+    def model(x, *p):
+        return likelihood.reduce_model(params=p)
+
+    if x0 is None:
+        x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
+
+    eps = kwargs.get("options", {}).get("eps", 1e-8)
+    if bounds is None:
+        bounds = []
+        for apar in likelihood.child_active_params:
+            bounds.append(
+                (
+                    apar.min + 2 * eps if apar.min > -np.inf else None,
+                    apar.max - 2 * eps if apar.max < np.inf else None,
+                )
+            )
+
+    elif not bounds:
+        bounds = None
+
+    res = _curve_fit(
+        model,
+        xdata=np.linspace(0, 1, len(likelihood.data)),
+        ydata=likelihood.data,
+        p0=x0,
+        sigma=likelihood.sigma,
+        bounds=bounds,
+        **kwargs,
+    )
+
     return res
