@@ -1,23 +1,22 @@
-"""
-Module defining the API for Samplers
-"""
-
-import os
-import warnings
+"""Module defining the API for Samplers."""
 
 import attr
 import numpy as np
+import os
 import pypolychord as ppc
+import warnings
 from attr.validators import instance_of
 from cached_property import cached_property
 from emcee import EnsembleSampler
 from getdist import MCSamples
+from pathlib import Path
 from pypolychord.priors import UniformPrior
 from pypolychord.settings import PolyChordSettings
 from scipy.optimize import minimize
 
 from yabf.core import yaml
 from yabf.core.likelihood import _LikelihoodInterface
+
 from . import mpi
 from .plugin import plugin_mount_factory
 
@@ -25,12 +24,13 @@ from .plugin import plugin_mount_factory
 @attr.s
 class Sampler(metaclass=plugin_mount_factory()):
     likelihood = attr.ib(validator=[instance_of(_LikelihoodInterface)])
-    _output_dir = attr.ib(default="", validator=instance_of(str))
-    _output_prefix = attr.ib(validator=instance_of(str))
+    _output_dir = attr.ib(default="", converter=Path, validator=instance_of(Path))
+    _output_prefix = attr.ib(converter=Path, validator=instance_of(Path))
     _save_full_config = attr.ib(default=True, converter=bool)
     sampler_kwargs = attr.ib(default={})
 
     def __attrs_post_init__(self):
+        """Define extra attributes depending on the input ones."""
         self.mcsamples = None
 
         # Save the configuration
@@ -53,25 +53,26 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     @cached_property
     def output_dir(self):
-        dir = os.path.join(self._output_dir, os.path.dirname(self._output_prefix))
+        """The directory into which the sampler will write information."""
+        direc = self._output_dir / os.path.dirname(self._output_prefix)
 
         # Try to create the directory.
         try:
-            os.makedirs(dir)
+            os.makedirs(direc)
             warnings.warn(
-                "Proposed output directory '{}' did not exist. Created it.".format(dir)
+                f"Proposed output directory '{direc}' did not exist. Created it."
             )
         except (FileExistsError, FileNotFoundError):
             pass
-        return dir
+        return direc
 
     @cached_property
     def output_file_prefix(self):
-        return os.path.basename(self._output_prefix)
+        return self._output_prefix.name
 
     @cached_property
     def config_filename(self):
-        return os.path.join(self.output_dir, self.output_file_prefix) + "_config.yml"
+        return self.output_dir / f"{self.output_file_prefix}_config.yml"
 
     @cached_property
     def nparams(self):
@@ -87,8 +88,9 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     def _get_sampler(self, **kwargs):
         """
-        Return an object that contains the sampling settings and potentially a
-        method to actually perform sampling
+        Return an object that contains the sampling settings.
+
+        The returned object may also contain a method to perform sampling.
 
         This could actually be nothing, and the class could rely purely
         on the :func:`_get_sampling_fn` method to create the sampler.
@@ -110,7 +112,7 @@ class Sampler(metaclass=plugin_mount_factory()):
         pass
 
     def _samples_to_mcsamples(self, samples):
-        """Return posterior samples, with shape (<...>, NPARAMS, NITER)"""
+        """Return posterior samples, with shape (<...>, NPARAMS, NITER)."""
         pass
 
 
@@ -129,7 +131,7 @@ class emcee(Sampler):
             log_prob_fn=self.likelihood,
             ndim=self.nparams,
             nwalkers=self.nwalkers,
-            **kwargs
+            **kwargs,
         )
 
     def _get_sampling_fn(self, sampler):
@@ -142,7 +144,7 @@ class emcee(Sampler):
         bounds=None,
         restart=False,
         refs=None,
-        **kwargs
+        **kwargs,
     ):
 
         if not restart:
@@ -243,7 +245,7 @@ class polychord(Sampler):
         return r"_{" + ",".join([str(i) for i in indx]) + r"}"
 
     def get_derived_paramnames(self):
-        """Creates a list of tuples specifying derived parameter names"""
+        """Create a list of tuples specifying derived parameter names."""
         names = []
         for name, shape in zip(self.likelihood.derived, self.derived_shapes):
             if shape == 0:
@@ -287,7 +289,7 @@ class polychord(Sampler):
             self.nderived,
             base_dir=self.output_dir,
             file_root=self.output_file_prefix,
-            **kwargs
+            **kwargs,
         )
 
     def _get_sampling_fn(self, sampler):
@@ -315,9 +317,7 @@ class polychord(Sampler):
 
 
 def run_map(likelihood, x0=None, bounds=None, **kwargs):
-    """
-    Run a maximum a-posteriori fit.
-    """
+    """Run a maximum a-posteriori fit."""
 
     def objfunc(p):
         return -likelihood.logp(params=p)

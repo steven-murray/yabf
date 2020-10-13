@@ -1,6 +1,6 @@
-import os
-
 import pytest
+
+import os
 from yaml.scanner import ScannerError
 
 from yabf.core import yaml

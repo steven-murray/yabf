@@ -1,5 +1,6 @@
-from yabf import LikelihoodContainer, load_likelihood_from_yaml
 import yaml
+
+from yabf import LikelihoodContainer, load_likelihood_from_yaml
 
 
 def test_round_trip():
@@ -30,7 +31,8 @@ likelihoods:
     print(lk.likelihoods[0]._subcomponents)
     assert "small.shared" in lk.child_components
     assert "big.unshared" in lk.child_components
-    assert "small.shared" in sum(list(lk.common_components.values()), [])
+    print(lk.common_components)
+    assert "small.shared" in lk.common_components[0][1]
 
     out = yaml.dump(lk)
     lk2 = yaml.load(out, Loader=yaml.FullLoader)

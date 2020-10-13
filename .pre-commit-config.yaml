@@ -1,11 +1,12 @@
+exclude: '^docs/conf.py'
+
 repos:
-  - repo: https://github.com/ambv/black
-    rev: stable
-    hooks:
-    - id: black
-      language_version: python3.6
+  -   repo: https://github.com/psf/black
+      rev: 20.8b1
+      hooks:
+      - id: black
   - repo: https://gitlab.com/pycqa/flake8
-    rev: '3.7.8'
+    rev: 3.8.3
     hooks:
     - id: flake8
       additional_dependencies:
@@ -19,4 +20,29 @@ repos:
         - flake8-bugbear
         - flake8-comprehensions
         - flake8-print
-        - cohesion
+
+  - repo: git://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: trailing-whitespace
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: requirements-txt-fixer
+      - id: mixed-line-ending
+        args: [ '--fix=no' ]
+
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.6.1
+    hooks:
+    - id: isort
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.6.0
+    hooks:
+      - id: rst-backticks

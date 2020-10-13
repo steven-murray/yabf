@@ -1,5 +1,6 @@
-"""
-Module to keep track of MPI things. Most functions copied from cobaya.mpi
+"""Module to keep track of MPI things.
+
+Most functions copied from cobaya.mpi.
 """
 
 # Vars to keep track of MPI parameters

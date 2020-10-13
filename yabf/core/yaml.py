@@ -6,7 +6,6 @@ Swiped from https://gist.github.com/joshbode/569627ced3076931b02f
 """
 import logging
 import os.path
-
 import yaml
 from yaml import *  # noqa
 
@@ -16,7 +15,6 @@ log = logging.getLogger(__name__)
 class ExtLoaderMeta(type):
     def __new__(mcs, __name__, __bases__, __dict__):
         """Add include constructor to class."""
-
         # register the include constructor on the class
         cls = super().__new__(mcs, __name__, __bases__, __dict__)
         cls.add_constructor("!include", cls.construct_include)
@@ -30,7 +28,6 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
 
     def __init__(self, stream):
         """Initialise Loader."""
-
         try:
             self._root = os.path.split(stream.name)[0]
         except AttributeError:
@@ -40,7 +37,6 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
 
     def construct_include(self, node):
         """Include file referenced at node."""
-
         filename = os.path.abspath(
             os.path.join(self._root, self.construct_scalar(node))
         )
@@ -54,7 +50,6 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
 
     def construct_include_here(self, node):
         """Include file referenced at node."""
-
         filename = os.path.abspath(
             os.path.join(self._root, self.construct_scalar(node))
         )

@@ -1,6 +1,8 @@
+"""Module defining parameter objects."""
 import attr
-from attr import validators as vld, converters as cnv
 import numpy as np
+from attr import converters as cnv
+from attr import validators as vld
 from cached_property import cached_property
 
 
@@ -25,8 +27,10 @@ def texify(name):
 @attr.s(frozen=True)
 class Parameter:
     """
-    A fiducial parameter of a reduce. Used to *define* the reduce
-    and its defaults. A Parameter of a reduce does not mean it *will* be
+    A fiducial parameter of a model.
+
+    Used to *define* the model and its defaults.
+    A Parameter of a model does not mean it *will* be
     constrained, but rather that it *can* be constrained. To be constrained,
     a :class:`Param` must be set on the instance at run-time.
 
@@ -60,9 +64,7 @@ class Parameter:
 
 @attr.s(frozen=True)
 class Param:
-    """
-    Specification of a parameter that is to be constrained.
-    """
+    """Specification of a parameter that is to be constrained."""
 
     name = attr.ib()
     fiducial = attr.ib(
@@ -178,10 +180,10 @@ class Param:
     def clone(self, **kwargs):
         return attr.evolve(self, **kwargs)
 
-    def new(self, p):
-        """
-        Create a new Param instance with any missing info from this
-        instance filled in by the given instance.
+    def new(self, p: Parameter):
+        """Create a new :class:`Param`.
+
+        Any missing info from this instance filled in by the given instance.
         """
         assert isinstance(p, Parameter)
         assert self.determines == (p.name,)

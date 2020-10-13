@@ -2,16 +2,19 @@
 
 """Console script for yabf."""
 
-import sys
 import click
-from . import load_sampler_from_yaml, load_likelihood_from_yaml, load_from_yaml, mpi
-import shutil
+import sys
+from getdist import plots
+from os import path
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+
 from yabf.core import utils
 from yabf.core.likelihood import _LikelihoodInterface
-from art import tprint
 
-from os import path
-from getdist import plots
+from . import load_from_yaml, load_likelihood_from_yaml, load_sampler_from_yaml, mpi
 
 try:
     from matplotlib import pyplot as plt
@@ -19,6 +22,8 @@ try:
     HAVE_MPL = True
 except ImportError:
     HAVE_MPL = False
+
+console = Console(width=100)
 
 
 @click.command()
@@ -37,12 +42,12 @@ except ImportError:
 )
 def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
     """Console script for yabf."""
-
-    terminal_width = shutil.get_terminal_size((80, 20))[0]
     if mpi.am_single_or_primary_process:
-        print("=" * terminal_width)
-        tprint("YABF", font="block", chr_ignore=True)
-        print()
+        console.print(
+            Panel("Welcome to yabf!", box=box.DOUBLE_EDGE),
+            style="bold",
+            justify="center",
+        )
 
     # Make the file prefix equivalent to the YAML file, unless over-ridden.
     if prefix is None:
@@ -57,83 +62,80 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
         sampler, runkw = load_from_yaml(yaml_file, override={"output_prefix": prefix})
 
     if mpi.am_single_or_primary_process:
-        print(f" Sampler [{sampler.__class__.__name__}] ".center(terminal_width, "="))
-        print(f"Sampler Options: {sampler.sampler_kwargs}")
-        print(f"Run Options: {runkw}")
-        print(f"Output Directory:\t{sampler.output_dir}")
-        print(f"Output Prefix:\t{sampler.output_file_prefix}")
+        console.print(Rule(f"Sampler [{sampler.__class__.__name__}] "))
+        console.print(f"[bold]Sampler Options:[/] {sampler.sampler_kwargs}")
+        console.print(f"[bold]Run Options:[/] {runkw}")
+        console.print(f"[bold]Output Directory:[/]\t{sampler.output_dir}")
+        console.print(f"[bold]Output Prefix:[/]\t{sampler.output_file_prefix}")
 
-        print()
-        print(" Model ".center(terminal_width, "="))
+        console.print()
+        console.print(Rule("Model"))
 
-        print(f" Likelihoods ".center(terminal_width, "-"))
-        for l in likelihood._subcomponents:
-            if isinstance(l, _LikelihoodInterface):
-                print(l.name)
-        print()
+        console.print("[bold]Likelihoods[/]")
+        for lk in likelihood._subcomponents:
+            if isinstance(lk, _LikelihoodInterface):
+                console.print(lk.name)
+        console.print()
 
-        print(f" Components ".center(terminal_width, "-"))
+        console.print("[bold]Components[/]")
         for loc, cmp in likelihood.child_components.items():
             if not isinstance(cmp, _LikelihoodInterface):
-                print(loc)
-        print()
+                console.print(loc)
+        console.print()
 
-        print(
-            f" Active Parameters ({len(likelihood.child_active_params)}) ".center(
-                terminal_width, "-"
-            )
+        console.print(
+            f"[bold]Active Parameters[/] [blue]({len(likelihood.child_active_params)})[/] "
         )
         _len = max(len(p.name) for p in likelihood.child_active_params)
         _dlen = max(len(str(p.determines)) for p in likelihood.child_active_params)
         for p in likelihood.child_active_params:
             det = str(p.determines).replace("'", "").replace("(", "").replace(")", "")
             fid = "[" + str(p.fiducial) + "]"
-            print(f"{p.name:<{_len}}  {fid:<8} -----> {det:<{_dlen}}")
+            console.print(f"{p.name:<{_len}}  {fid:<8} -----> {det:<{_dlen}}")
 
         fit_params = sum((p.determines for p in likelihood.child_active_params), ())
-        print()
-        print(" In-active parameters ".center(terminal_width, "-"))
+        console.print()
+        console.print("[bold]In-active parameters[/]")
         for lc in likelihood.child_base_parameter_dct:
             if lc not in fit_params:
-                print(
+                console.print(
                     f"{lc} = {utils.get_loc_from_dict(likelihood.fiducial_params, lc)}"
                 )
 
-        print()
-        print("Starting MCMC".center(terminal_width, "="))
+        console.print()
+        console.print(Rule("Starting MCMC"))
 
     mpi.sync_processes()
     mcsamples = sampler.sample(**runkw)
     mpi.sync_processes()
 
     if mpi.am_single_or_primary_process:
-        print("Done.\n")
-        print("-" * terminal_width)
-        print("Basic Chain Diagnostics")
-        print("-" * terminal_width)
+        console.print("Done.\n")
+        console.print(Rule())
+        console.print()
+        console.print(Rule("[bold]Basic Chain Diagnostics[/]"))
 
         try:
             gr = mcsamples.getGelmanRubin()
         except Exception:
             gr = "unavailable"
 
-        print("Gelman-Rubin Statistic: ", gr)
-        print()
-        print("Correlation Lengths")
-        print("-" * terminal_width)
+        console.print("Gelman-Rubin Statistic: ", gr)
+        console.print()
+        console.print(Rule("Correlation Lengths"))
         for i, p in enumerate(mcsamples.getParamNames().names):
             corrlength = mcsamples.getCorrelationLength(i, weight_units=False)
-            print("{}:\t{:1.3e}".format(p.name, corrlength))
+            console.print("{}:\t{:1.3e}".format(p.name, corrlength))
 
-        print()
-        print("-" * terminal_width)
-        print("Mean (+- std) Posterior Values:")
-        print("-" * terminal_width)
+        console.print()
+        console.print("Mean (+- std) Posterior Values:")
         mean = mcsamples.getMeans()
         std = mcsamples.getVars()
 
         for m, s, p in zip(mean, std, mcsamples.getParamNames().names):
-            print("{p}:\t{mean:1.3e} +- {std:1.3e}".format(p=p.name, mean=m, std=s))
+            console.print(
+                "{p}:\t{mean:1.3e} +- {std:1.3e}".format(p=p.name, mean=m, std=s)
+            )
 
         if plot and HAVE_MPL:
             g = plots.getSubplotPlotter()
@@ -141,7 +143,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
                 mcsamples, params=list(likelihood.child_active_params), shaded=True
             )
 
-            plt.savefig(prefix + "_corner.{}".format(plot_format))
+            plt.savefig(f"{prefix}_corner.{plot_format}")
 
         if write:
             mcsamples.saveAsText(prefix, make_dirs="/" in prefix)

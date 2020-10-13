@@ -1,59 +1,148 @@
-"""
-Framework for MCMC Likelihoods.
-"""
-
-import collections
-from abc import ABC
-from copy import deepcopy
-import logging
+"""Framework for likelihoods."""
 
 import attr
+import collections
+import logging
 import numpy as np
+from abc import ABC
 from attr import validators
 from cached_property import cached_property
+from copy import deepcopy
+from typing import Dict, Sequence
 
-from . import mpi
-from . import utils
+from . import mpi, utils
 from .component import Component, ParameterComponent, _ComponentTree
 
 logger = logging.getLogger(__name__)
 
 
 class _LikelihoodInterface(ABC):
-    """
-    An abstract base class for likelihoods, defining the methods they must expose.
-    """
+    """An abstract base class for likelihoods, defining the methods they must expose."""
 
-    def mock(self, model=None, ctx=None, params=None):
-        """Create a mock dataset given a set of parameters (and potentially a
-        corresponding model and ctx)
+    def mock(
+        self,
+        model=None,
+        ctx: [None, dict] = None,
+        params: [None, Sequence, Dict] = None,
+    ):
+        """Create a mock dataset given a set of parameters.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        ctx
+            Optional dictionary of component calculations.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
         pass
 
     def derived_quantities(self, model=None, ctx=None, params=None):
-        """Generate specified derived quantities given a set of parameters (and potentially
-        a corresponding model and ctx
+        """Generate specified derived quantities given a set of parameters.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        ctx
+            Optional dictionary of component calculations.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
         pass
 
     def logprior(self, params=None):
-        """Generate the total logprior for all active parameters."""
+        """Generate the total logprior for all active parameters.
+
+        Parameters
+        ----------
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        """
         pass
 
     def get_ctx(self, params=None):
-        """Generate the context, by running all components."""
+        """Generate the context, by running all components.
+
+        Parameters
+        ----------
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        """
         pass
 
     def logl(self, model=None, ctx=None, params=None):
-        """Return the log-likelihood at the given parameters"""
+        """Return the log-likelihood at the given parameters.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        ctx
+            Optional dictionary of component calculations.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        """
         pass
 
     def logp(self, model=None, params=None):
-        """Return the log-posterior at the given parameters"""
+        """Return the log-posterior at the given parameters.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        """
         return self.logprior(**params) + self.logl(model, **params)
 
     def __call__(self, params=None, ctx=None):
-        """Return a tuple of the log-posterior and derived quantities at given params"""
+        """Return a tuple of the log-posterior and derived quantities at given params.
+
+        Parameters
+        ----------
+        ctx
+            Optional dictionary of component calculations.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        """
         pass
 
 
@@ -67,6 +156,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
     _plugins = {}
 
     def __init_subclass__(cls, is_abstract=False, **kwargs):
+        """Enable plugins."""
         super().__init_subclass__(**kwargs)
         if not is_abstract:
             cls._plugins[cls.__name__] = cls
@@ -80,6 +170,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     @cached_property
     def using_mock_data(self):
+        """Whether we are using mock data."""
         return self._data is None and hasattr(self, "_mock")
 
     @_data_seed.default
@@ -99,6 +190,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     @cached_property
     def data(self):
+        """The data associated with the likelihood."""
         if self._data is None and not hasattr(self, "_mock"):
             raise AttributeError(
                 "You have not passed any data and no mock method found"
@@ -115,9 +207,31 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     @classmethod
     def check_component_requirements(cls, components):
+        """Check that the requirements of each sub-components are met."""
         return True
 
-    def get_ctx(self, ctx=None, ignore_components=None, params=None):
+    def get_ctx(self, ctx=None, ignore_components=None, params=None) -> Dict:
+        """Obtain a full context dictionary for given parameters.
+
+        Parameters
+        ----------
+        ctx
+            Optional dictionary of component calculations.
+        ignore_components
+            A list of names of (sub-)components to *not* run.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+
+        Returns
+        -------
+        ctx
+            The fully-calculated set of values from all sub-components.
+        """
         params = self._fill_params(params)
 
         if ctx is None:
@@ -156,8 +270,25 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         return model, ctx, params
 
     def mock(self, model=None, ctx=None, ignore_components=None, params=None):
-        """
-        Create mock data at given parameters.
+        """Create mock data at given parameters.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        ctx
+            An optional dictionary of calculated data into which will be inserted the
+            results of this calculation.
+        ignore_components
+            A list of names of (sub-)components to *not* run.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+
         """
         model, _, params = self._get_model_ctx_params(
             params, model, ctx, ignore_components
@@ -166,7 +297,31 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     def derived_quantities(
         self, model=None, ctx=None, ignore_components=None, params=None
-    ):
+    ) -> list:
+        """Obtain all derived quantities specified for the object.
+
+        Parameters
+        ----------
+        model
+            The model to make a mock of.
+        ctx
+            An optional dictionary of calculated data into which will be inserted the
+            results of this calculation.
+        ignore_components
+            A list of names of (sub-)components to *not* run.
+        params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+
+        Returns
+        -------
+        dquants
+
+        """
         model, ctx, params = self._get_model_ctx_params(
             params, model, ctx, ignore_components
         )
@@ -200,8 +355,10 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     def reduce_model(self, ctx=None, ignore_components=None, params=None):
         """
-        Reduce the model data produced by the components, returning
-        the most reduced model data required to calculate the likelihood.
+        Reduce the model data produced by the components.
+
+        This function returns the most reduced model data required to calculate the
+        likelihood.
         """
         params = self._fill_params(params)
         ctx = self.get_ctx(ctx=ctx, ignore_components=ignore_components, params=params)
@@ -210,7 +367,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         return self._reduce(ctx, **top_level_params)
 
     def _reduce(self, ctx, **params):
-        """Basic reduction just returns the ctx as a whole"""
+        """Basic reduction just returns the ctx as a whole."""
         return ctx
 
     def logl(self, model=None, ctx=None, ignore_components=None, params=None):
@@ -255,6 +412,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         )
 
     def __getstate__(self):
+        """Return a dictionary defining the likelihood."""
         dct = super().__getstate__()
         if self._store_data:
             dct.update(_data=self.data)
@@ -282,12 +440,11 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     @cached_property
     def name(self):
+        """The name of the likelihood."""
         return self._name or "_".join([lk.name for lk in self.likelihoods])
 
     def get_ctx(self, params=None):
-        """
-        Generate the context by running all components in all likelihoods
-        """
+        """Generate the context by running all components in all likelihoods."""
         params = self._fill_params(params)
 
         ctx = {}
@@ -314,7 +471,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         return ctx
 
     def reduce_model(self, ctx=None, params=None):
-        """Get models from all likelihoods, as a dict of {likelihood_name: reduce}"""
+        """Get models from all likelihoods, as a dict of {likelihood_name: reduce}."""
         params = self._fill_params(params)
 
         if ctx is None:

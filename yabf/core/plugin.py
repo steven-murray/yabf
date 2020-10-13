@@ -1,15 +1,10 @@
-"""
-Provides common plugin framework
-"""
+"""Provides common plugin framework."""
 
 
 def plugin_mount_factory():
-    """
-    http://martyalchin.com/2008/jan/10/simple-plugin-framework/
+    """Return a plugin mounter.
 
-    Returns
-    -------
-
+    Copied from http://martyalchin.com/2008/jan/10/simple-plugin-framework/
     """
 
     class PluginMount(type):

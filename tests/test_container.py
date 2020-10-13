@@ -1,6 +1,7 @@
 import pytest
 
-from yabf import Component, Parameter, Likelihood, LikelihoodContainer, Param
+from yabf import Component, Likelihood, LikelihoodContainer, Param, Parameter
+
 from .shared_resources import SimpleComponent, SimpleLikelihood
 
 
@@ -60,28 +61,28 @@ def test_two_lk_sharing_a_param():
         def lnl(self, model, **params):
             return -model
 
+    small_cmp = ThisComponent(
+        name="small_component",
+        params=(
+            Param("x", fiducial=0),
+            Param("y", fiducial=0),
+            Param("z", fiducial=2),
+        ),
+    )
+
     lk = LikelihoodContainer(
         likelihoods=(
             ThisLikelihood(
                 name="small",
                 params=(Param("w", fiducial=1),),
-                components=[
-                    ThisComponent(
-                        "small_component",
-                        params=(
-                            Param("x", fiducial=0),
-                            Param("y", fiducial=0),
-                            Param("z", fiducial=2),
-                        ),
-                    )
-                ],
+                components=[small_cmp],
             ),
             ThisLikelihood(
                 name="big",
                 params=(Param("w", fiducial=1),),
                 components=[
                     ThisComponent(
-                        "large_component",
+                        name="large_component",
                         params=(
                             Param("xx", fiducial=5, determines=["x"]),
                             Param("yy", fiducial=5, determines=["y"]),

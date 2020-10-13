@@ -1,14 +1,14 @@
+"""Module defining routines for reading/writing config files."""
 import importlib
 import sys
 from os import path
-
 from scipy import stats
 
-from yabf import Param, LikelihoodContainer, Likelihood, Component
-from yabf.core import yaml
-from yabf.core.likelihood import _LikelihoodInterface
-from . import utils
-from .io import DataLoader, CompositeLoader
+from . import utils, yaml
+from .component import Component
+from .io import CompositeLoader, DataLoader
+from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
+from .parameters import Param
 from .samplers import Sampler
 
 
@@ -275,9 +275,7 @@ def load_from_yaml(stream, name=None, override=None, ignore_data=False):
 
 
 def load_sampler_from_yaml(stream, likelihood, override=None):
-    """
-    Return a sampler and any sampling arguments specified in the yaml file
-    """
+    """Return a sampler and any sampling arguments specified in the yaml file."""
     config = _load_str_or_file(stream)
     if override:
         config = utils.recursive_update(config, override)

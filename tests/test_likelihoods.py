@@ -1,6 +1,8 @@
 import pytest
-from .shared_resources import SimpleComponent, SimpleLikelihood
+
 from yabf import Param
+
+from .shared_resources import SimpleComponent, SimpleLikelihood
 
 
 @pytest.fixture(scope="module")

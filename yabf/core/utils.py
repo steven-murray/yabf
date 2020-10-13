@@ -1,7 +1,7 @@
+"""Various utility functions."""
 import collections
-from contextlib import contextmanager
-
 import numpy as np
+from contextlib import contextmanager
 from frozendict import frozendict
 
 
@@ -27,20 +27,20 @@ def get_loc_from_dict(dct, loc):
     else:
         locs = loc.split(".")
         d = dct
-        for l in locs:
+        for ll in locs:
             try:
-                d = d[l]
+                d = d[ll]
             except KeyError:
                 raise KeyError(f"loc {loc} does not exist in dict {dct}")
 
         return d
 
 
-def add_loc_to_dict(dict, loc, val, raise_if_not_exist=False):
+def add_loc_to_dict(dct, loc, val, raise_if_not_exist=False):
     locs = loc.split(".")
     imax = len(locs) - 1
 
-    this = dict
+    this = dct
     for i, loc in enumerate(locs):
         if i == imax:
             if isinstance(val, collections.abc.Mapping):
@@ -55,12 +55,12 @@ def add_loc_to_dict(dict, loc, val, raise_if_not_exist=False):
 
                 this[loc] = {}
             this = this[loc]
-    return dict
+    return dct
 
 
 @contextmanager
 def seed_as(seed):
-    """A context manager which sets a random seed and then randomizes upon exit"""
+    """A context manager which sets a random seed and then randomizes upon exit."""
     post_seed = np.random.randint(0, 2 ** 32 - 1)
     np.random.seed(seed)
     yield None

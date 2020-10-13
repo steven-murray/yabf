@@ -1,4 +1,4 @@
-from yabf import Component, Parameter, Likelihood
+from yabf import Component, Likelihood, Parameter
 
 
 class SimpleComponent(Component):

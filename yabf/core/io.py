@@ -1,9 +1,6 @@
-"""
-Module defining data loaders for YAML files.
-"""
-import pickle
-
+"""Module defining data loaders for YAML files."""
 import numpy as np
+import pickle
 
 from .plugin import plugin_mount_factory
 
@@ -40,8 +37,7 @@ class PickleLoader(DataLoader):
 class npzLoader(DataLoader):
     def load(self, data):
         try:
-            data = dict(np.load(data))
-            return data
+            return dict(np.load(data))
         except FileNotFoundError:
             raise
         except Exception:
@@ -51,8 +47,7 @@ class npzLoader(DataLoader):
 class npyLoader(DataLoader):
     def load(self, data):
         try:
-            data = np.load(data)
-            return data
+            return np.load(data)
         except FileNotFoundError:
             raise
         except Exception:
@@ -87,5 +82,5 @@ class CompositeLoader(DataLoader):
                 pass
 
         raise LoadError(
-            "None of the specified loaders were able to load the data: {}".format(data)
+            f"None of the specified loaders were able to load the data: {data}"
         )

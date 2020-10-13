@@ -1,24 +1,21 @@
-"""
-Framework for MCMC Components.
-"""
+"""Framework for MCMC Components."""
+import attr
+import collections
 from abc import ABC
+from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
-import collections
-
-import attr
-from cached_property import cached_property
+from frozendict import frozendict
 
 from . import utils
 from .parameters import Param
-from frozendict import frozendict
 
 
 def _only_active(func):
     def func_wrapper(self, *args, **kwargs):
         if not self.in_active_mode:
             raise AttributeError(
-                "{} is not available when not in active mode.".format(func.__name__)
+                f"{func.__name__} is not available when not in active mode."
             )
         return func(self, *args, **kwargs)
 
@@ -30,9 +27,7 @@ class DependencyError(ValueError):
 
 
 class _ComponentTree(ABC):
-    """
-    A base class for all components and their containers.
-    """
+    """A base class for all components and their containers."""
 
     @cached_property
     def _in_active_mode(self):
@@ -53,9 +48,7 @@ class _ComponentTree(ABC):
 
     @cached_property
     def common_components(self):
-        """
-        All components that occur more than once.
-        """
+        """All components that occur more than once."""
         common = []
 
         for loc, cmp in self.child_components.items():
@@ -63,8 +56,8 @@ class _ComponentTree(ABC):
                 if cmp == c:
                     common[i] = (c, v + (loc,))
                     break
-                elif i == len(common) - 1:
-                    common.append((cmp, (loc,)))
+            else:
+                common.append((cmp, (loc,)))
 
         # Remove non-common components
         common = [(k, v) for k, v in common if len(v) > 1]
@@ -87,19 +80,14 @@ class _ComponentTree(ABC):
 
     @property
     def in_active_mode(self):
-        """
-        Bool representing whether this class is in active mode (i.e. whether
-        it is being actively constrained).
-        """
+        """Whether this class is in active mode (i.e. being actively constrained)."""
         return self._in_active_mode or any(
             cmp.in_active_mode for cmp in self._subcomponents
         )
 
     @cached_property
     def child_base_parameters(self):
-        """
-        Tuple of all parameters in this and child components.
-        """
+        """Tuple of all parameters in this and child components."""
         this = tuple(self.base_parameters) if hasattr(self, "base_parameters") else ()
         for cmp in self._subcomponents:
             this = this + cmp.child_base_parameters
@@ -107,8 +95,7 @@ class _ComponentTree(ABC):
 
     @cached_property
     def child_base_parameter_dct(self):
-        """Set of all available parameter names in this component and its
-        sub-components"""
+        """Set of all parameter names in this component and its sub-components."""
         res = list(getattr(self, "base_parameter_dct", []))
 
         for cmp in self._subcomponents:
@@ -120,8 +107,7 @@ class _ComponentTree(ABC):
         )
 
     def _loc_to_component(self, loc: str):
-        """
-        Take a string loc and return a sub-component based on the string.
+        """Take a string loc and return a sub-component based on the string.
 
         i.e. "foo.bar" would return the component named "bar" in the component
         named "foo" in self.
@@ -180,9 +166,7 @@ class _ComponentTree(ABC):
 
     @cached_property
     def child_active_params(self):
-        """
-        tuple of all active parameters in this likelihood/component and its
-        sub-components
+        """Tuple of all active parameters in this component and its sub-components.
 
         Note that this will also check if child-components have params of the same
         name, and de-duplicate. The child active params will have correct dot-path
@@ -239,10 +223,8 @@ class _ComponentTree(ABC):
             loc, _, paramname = name.rpartition(".")
             yield name, paramname
 
-    def _fiducial_params(self, transform=True):
-        """
-        Dictionary of fiducial parameters for all subcomponents
-        """
+    def _fiducial_params(self, transform=True) -> dict:
+        """Dictionary of fiducial parameters for all subcomponents."""
         dct = {}
 
         for aparam in self.child_active_params:
@@ -324,9 +306,9 @@ class _ComponentTree(ABC):
 
     @_only_active
     def _parameter_list_to_dict(self, p, transform=True):
-        """
-        This defines the order in which the parameters should arrive, i.e.
-        the same order as :func:`active_params`.
+        """Define the order in which the parameters should arrive.
+
+        The same order as :func:`active_params`.
 
         It only makes sense to call in active mode, and p must be a list
         or array of the same length as :func:`child_active_params`.
@@ -380,7 +362,6 @@ class _ComponentTree(ABC):
             values of the parameter. If `full` is True, returns a dict, where
             each key is the name of a parameter.
         """
-
         if params is None:
             params = self.child_active_params
         else:
@@ -406,8 +387,10 @@ class _ComponentTree(ABC):
 
     def __getstate__(self):
         """
-        Set the YAML/pickle state such that only the initial values passed to
-        the constructor are actually saved. In this sense, this class is "frozen",
+        Set the YAML/pickle state.
+
+        Sets it such that only the initial values passed to the constructor are actually
+        saved. In this sense, this class is "frozen",
         though there are some attributes which are lazy-loaded after instantiation.
         These don't need to be written.
         """
@@ -416,8 +399,7 @@ class _ComponentTree(ABC):
 
 @attr.s(kw_only=True, frozen=True)
 class ParameterComponent(_ComponentTree):
-    """
-    A base class for named components and likelihoods that take parameters.
+    """Base class for named components and likelihoods that take parameters.
 
     Parameters
     ----------
@@ -469,21 +451,23 @@ class ParameterComponent(_ComponentTree):
     base_parameters = ()
 
     def __init_subclass__(cls, **kwargs):
+        """Enable plugin ability."""
         super().__init_subclass__()
 
     def __attrs_post_init__(self):
+        """Perform checks on parameters."""
         if len(set(self.child_base_parameter_dct.keys())) != len(
             self.child_base_parameter_dct.keys()
         ):
             raise NameError(
-                "One or more of the parameter paths from {} is not unique: "
-                "{}".format(self.name, self.child_base_parameter_dct.keys())
+                f"One or more of the parameter paths from {self.name} is not unique: "
+                f"{self.child_base_parameter_dct.keys()}"
             )
 
         if len(self.base_parameter_dct) != len(self.base_parameters):
             raise ValueError(
-                "There are two parameters with the same name in {}: "
-                "{}".format(self.__class__.__name__, self.base_parameter_dct.keys())
+                f"There are two parameters with the same name in {self.__class__.__name__}: "
+                f"{self.base_parameter_dct.keys()}"
             )
 
     def _get_subcomponent_names(self):
@@ -497,7 +481,7 @@ class ParameterComponent(_ComponentTree):
 
     @cached_property
     def name(self):
-        """Name of the component"""
+        """Name of the component."""
         return self._name or self.__class__.__name__
 
     @params.validator
@@ -513,16 +497,14 @@ class ParameterComponent(_ComponentTree):
         determines = sum((list(p.determines) for p in value), [])
         if len(set(determines)) != len(determines):
             raise ValueError(
-                "different parameters determine the same base parameter "
-                "in {}:{}".format(self.name, determines)
+                f"different parameters determine the same base parameter "
+                f"in {self.name}:{determines}"
             )
 
         if any(d not in self.base_parameter_dct for d in determines):
             raise ValueError(
-                "One or more params do not map to any known Parameter in {}: {}. "
-                "Known params: {}".format(
-                    self.name, determines, list(self.base_parameter_dct.keys())
-                )
+                f"One or more params do not map to any known Parameter in {self.name}: "
+                f"{determines}. Known params: {list(self.base_parameter_dct.keys())}"
             )
 
     @fiducial.validator
@@ -535,9 +517,9 @@ class ParameterComponent(_ComponentTree):
                 )
             if name not in self.base_parameter_dct:
                 raise KeyError(
-                    "Fiducial parameter {} does not match any parameters of {}. "
-                    "Note that fiducial parameters must be passed at the level "
-                    "to which they belong.".format(name, self.name)
+                    f"Fiducial parameter {name} does not match any parameters of "
+                    f"{self.name}. Note that fiducial parameters must be passed at "
+                    f"the level to which they belong."
                 )
 
     @derived.validator
@@ -553,20 +535,20 @@ class ParameterComponent(_ComponentTree):
     @cached_property
     def base_parameter_dct(self):
         """
-        All possible parameters of this specific component or likelihood,
-        not just those that are being constrained.
+        All possible parameters of this specific component or likelihood.
+
+        Not just parameters that are being constrained.
         """
         return {p.name: p for p in self.base_parameters}
 
     @cached_property
-    def active_params(self):
+    def active_params(self) -> tuple:
         """
-        Tuple of actively constrained parameters specified for this
-        component or likelihood only.
+        Tuple of actively constrained parameters.
 
+        Represents only those specified for this component or likelihood only.
         Note that this is just the parameters themselves.
         """
-
         out = []
         for v in self.params:
             if len(v.determines) == 1:
@@ -577,13 +559,16 @@ class ParameterComponent(_ComponentTree):
         return tuple(out)
 
     @cached_property
-    def active_params_dct(self):
-        """OrderedDict of actively constrained parameter names in this component"""
+    def active_params_dct(self) -> OrderedDict:
+        """Actively constrained parameters in this component.
+
+        Keys are string names, and values are the :class:`~Param` objects.
+        """
         return OrderedDict([(p.name, p) for p in self.active_params])
 
     @cached_property
-    def _base_to_param_mapping(self):
-        """dict of base:active params in *this* component"""
+    def _base_to_param_mapping(self) -> dict:
+        """Dict of base:active params in *this* component."""
         mapping = OrderedDict()
         for p in self.base_parameters:
             for prm in self.active_params:
@@ -594,9 +579,11 @@ class ParameterComponent(_ComponentTree):
 
 @attr.s(frozen=True, kw_only=True)
 class Component(ParameterComponent):
-    """
-    A component of a likelihood. These are mainly for re-usability, so they
-    can be mixed and matched inside likelihoods.
+    """A component of a likelihood.
+
+    These are mainly for re-usability, so they can be mixed and matched inside
+    likelihoods. Multiple components can be used in a single likelihood, providing the
+    ability to compute different elements.
     """
 
     components = attr.ib(factory=tuple, converter=tuple, kw_only=True)
@@ -605,6 +592,7 @@ class Component(ParameterComponent):
     _plugins = {}
 
     def __init_subclass__(cls, is_abstract=False, **kwargs):
+        """Provide plugin capablity and do some verification of a defined plugin."""
         super().__init_subclass__(**kwargs)
 
         # Plugin framework
@@ -613,8 +601,8 @@ class Component(ParameterComponent):
 
         if type(cls.provides) not in [list, set, tuple, cached_property]:
             raise TypeError(
-                "Component {} must define a list/set/tuple/cached_property for "
-                "'provides'. Instead, it is {}".format(cls.__name__, type(cls.provides))
+                f"Component {cls.__name__} must define a list/set/tuple/cached_property "
+                f"for 'provides'. Instead, it is {type(cls.provides)}"
             )
 
         if type(cls.provides) in [list, set, tuple]:
@@ -642,7 +630,7 @@ class Component(ParameterComponent):
             elif callable(d):
                 dquants.append(d(ctx, **params))
             else:
-                raise ValueError("{} is not a valid entry for derived".format(d))
+                raise ValueError(f"{d} is not a valid entry for derived")
 
         return dquants
 
@@ -651,23 +639,49 @@ class Component(ParameterComponent):
         return self.components
 
     def calculate(self, ctx=None, **params):
+        """Perform the main calculation of this component.
+
+        Parameters
+        ----------
+        ctx
+            The context into which to place the result of the calculation.
+
+        Other Parameters
+        ----------------
+        Anything else must be a keyword corresponding to a named parameter of the
+        component.
         """
+        pass
+
+    def __call__(
+        self,
+        params: [None, list, dict] = None,
+        ctx: [None, dict] = None,
+        ignore_components: [None, list] = None,
+    ) -> dict:
+        """Perform the calculation of this and all subcomponents.
+
+        Results are returned as a dictionary, which can be pre-filled.
 
         Parameters
         ----------
         params
+            The parameter values to use in the calculation. If a list (or tuple), must
+            be of the same length as the active params of this component. If a dict,
+            keys must be strings corresponding to the names of the active parameters,
+            but not all parameters must be present (non-present keys are given default
+            values specified by the component itself, or instance-level
+            :attr:`fiducial_params`). By default, use all fiducial parameters.
+        ctx
+            An optional dictionary of calculated data into which will be inserted the
+            results of this calculation.
+        ignore_components
+            A list of names of (sub-)components to *not* run.
 
         Returns
         -------
-
-        """
-        pass
-
-    def __call__(self, params=None, ctx=None, ignore_components=None):
-        """
-        Every component should take a dct of parameter values and return
-        a dict of values to be used. All Parameters of the component will
-        be in params.
+        ctx
+            All the results under specific keys (defined by each sub-component).
         """
         params = self._fill_params(params)
 
