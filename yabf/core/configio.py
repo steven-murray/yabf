@@ -68,21 +68,20 @@ def _construct_data(dct, key="kwargs"):
 
     data_dct = dct.get(key, {})
 
-    if type(data_dct) is dict:
-        # Load data
-        if loader is CompositeLoader:
-            loader = DataLoader._plugins[data_dct.pop("data_loader", "CompositeLoader")]
+    if not isinstance(data_dct, dict):
+        return loader().load(data_dct)
 
-        data = {}
-        for key, val in data_dct.items():
-            if key.startswith("dummy"):
-                data.update(loader().load(val))
-            else:
-                data.update({key: loader().load(val)})
-        return data
-    else:
-        out = loader().load(data_dct)
-        return out
+    # Load data
+    if loader is CompositeLoader:
+        loader = DataLoader._plugins[data_dct.pop("data_loader", "CompositeLoader")]
+
+    data = {}
+    for key, val in data_dct.items():
+        if key.startswith("dummy"):
+            data.update(loader().load(val))
+        else:
+            data.update({key: loader().load(val)})
+    return data
 
 
 def _construct_derived(dct):
