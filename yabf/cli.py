@@ -153,6 +153,7 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
             plt.savefig(f"{prefix}_corner.{plot_format}")
 
         if write:
+            prefix = prefix or "output"
             mcsamples.saveAsText(prefix, make_dirs="/" in prefix)
 
     return 0
