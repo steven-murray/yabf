@@ -328,7 +328,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
         dquants = []
         for d in self.derived:
-            if type(d) == str:
+            if isinstance(d, str):
                 # Append local quantity
                 dquants.append(getattr(self, d)(model, ctx, **params))
             elif callable(d):
@@ -410,6 +410,15 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
                 model, ctx, ignore_components=ignore, params=transformed_params
             ),
         )
+
+    @cached_property
+    def child_derived(self):
+        derived = self.derived
+
+        for cmp in self._subcomponents:
+            derived = derived + cmp.derived
+
+        return derived
 
     def __getstate__(self):
         """Return a dictionary defining the likelihood."""
@@ -521,7 +530,11 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     @cached_property
     def derived(self):
-        return sum((lk.derived for lk in self.likelihoods), ())
+        return sum((lk.child_derived for lk in self.likelihoods), ())
+
+    @property
+    def child_derived(self):
+        return self.derived
 
     def derived_quantities(self, model=None, ctx=None, params=None):
         params = self._fill_params(params)

@@ -529,7 +529,7 @@ class ParameterComponent(_ComponentTree):
     def _validate_derived(self, val):
         for d in val:
             assert callable(d) or (
-                type(d) is str and hasattr(self, d)
+                isinstance(d, str) and hasattr(self, d)
             ), f"{d} is not a valid derived parameter"
 
     @cached_property
@@ -625,7 +625,7 @@ class Component(ParameterComponent):
 
         dquants = []
         for d in self.derived:
-            if type(d) == str:
+            if isinstance(d, str):
                 dquants.append(getattr(self, d)(ctx, **params))
             elif callable(d):
                 dquants.append(d(ctx, **params))

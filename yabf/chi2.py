@@ -7,6 +7,18 @@ from .core.likelihood import Likelihood
 from .core.parameters import Parameter
 
 
+def is_diagonal(m):
+    """Fast check for if an array is diagonal.
+
+    Gotten from https://stackoverflow.com/a/43885215/1467820.
+    """
+    assert m.ndim == 2
+    i, j = m.shape
+    assert i == j
+    test = m.reshape(-1)[:-1].reshape(i - 1, j + 1)
+    return ~np.any(test[:, 1:])
+
+
 @attr.s(frozen=True)
 class Chi2:
     base_parameters = [Parameter("sigma", 0.013, min=0, latex=r"\sigma")]
@@ -34,11 +46,18 @@ class Chi2:
             sigma = sigma * np.ones_like(self.data)
 
         # Ensure we don't use flagged channels
-        mask = np.logical_or(np.isnan(self.data), np.isinf(sigma))
-        d = self.data[~mask]
-        m = model[~mask]
+        mask = ~np.isnan(self.data)
+        d = self.data[mask]
+        m = model[mask]
 
-        nm = stats.norm(loc=m, scale=sigma[~mask])
+        s = sigma[mask][:, mask] if sigma.ndim == 2 else sigma[mask]
+
+        if s.ndim <= 2 or is_diagonal(s):
+            if s.ndim == 2:
+                s = np.diag(s)
+            nm = stats.norm(loc=m, scale=s)
+        else:
+            nm = stats.multivariate_normal(mean=m, cov=s, allow_singular=True)
 
         lnl = np.sum(nm.logpdf(d))
         if np.isnan(lnl):

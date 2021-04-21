@@ -109,8 +109,8 @@ def _construct_components(dct):
             cls = Component._plugins[cls]
         except KeyError:
             raise ImportError(
-                "The component {} is not importable. Ensure you "
-                "have set the correct import_paths and external_modules".format(name)
+                f"The component '{name}' is not importable. Ensure you "
+                "have set the correct import_paths and external_modules"
             )
 
         cmp_data = _construct_data(cmp)
@@ -148,14 +148,11 @@ def _construct_likelihoods(config, ignore_data=False):
             cls = Likelihood._plugins[likelihood]
         except KeyError:
             raise ImportError(
-                "The likelihood {} is not importable. Ensure you "
-                "have set the correct import_paths and external_modules".format(name)
+                f"The likelihood '{name}' is not importable. Ensure you "
+                "have set the correct import_paths and external_modules"
             )
 
-        if not ignore_data:
-            data = _construct_data(lk, key="data")
-        else:
-            data = None
+        data = _construct_data(lk, key="data") if not ignore_data else None
         kwargs = _construct_data(lk)
         params = _construct_params(lk)
         derived = _construct_derived(lk)

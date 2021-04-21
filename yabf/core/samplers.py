@@ -158,7 +158,7 @@ class emcee(Sampler):
 
         if refs is None:
             if not downhill_first:
-                refs = np.array(self.likelihood.generate_refs(n=self.nwalkers))
+                refs = np.array(self.likelihood.generate_refs(n=self.nwalkers)).T
             else:
                 res = run_map(self.likelihood, bounds=bounds)
                 refs = np.random.multivariate_normal(
@@ -249,7 +249,7 @@ class polychord(Sampler):
     def get_derived_paramnames(self):
         """Create a list of tuples specifying derived parameter names."""
         names = []
-        for name, shape in zip(self.likelihood.derived, self.derived_shapes):
+        for name, shape in zip(self.likelihood.child_derived, self.derived_shapes):
             if shape == 0:
                 names.append((name, name))
             else:
@@ -265,7 +265,9 @@ class polychord(Sampler):
         return names
 
     def _make_paramnames_files(self, mcsamples):
-        paramnames = [(p.name, p.latex) for p in self.likelihood.child_active_params]
+        paramnames = [
+            (p.name + "*", p.latex) for p in self.likelihood.child_active_params
+        ]
 
         # also have to add derived...
         paramnames += self.get_derived_paramnames()
@@ -289,8 +291,8 @@ class polychord(Sampler):
         return PolyChordSettings(
             self.nparams,
             self.nderived,
-            base_dir=self.output_dir,
-            file_root=self.output_file_prefix,
+            base_dir=str(self.output_dir),
+            file_root=str(self.output_file_prefix),
             **kwargs,
         )
 
@@ -367,17 +369,13 @@ def curve_fit(likelihood: Likelihood, x0=None, bounds=None, **kwargs):
 
     eps = kwargs.get("options", {}).get("eps", 1e-8)
     if bounds is None:
-        bounds = []
-        for apar in likelihood.child_active_params:
-            bounds.append(
-                (
-                    apar.min + 2 * eps if apar.min > -np.inf else None,
-                    apar.max - 2 * eps if apar.max < np.inf else None,
-                )
-            )
+        bounds = (
+            [apar.min + 2 * eps for apar in likelihood.child_active_params],
+            [apar.max - 2 * eps for apar in likelihood.child_active_params],
+        )
 
     elif not bounds:
-        bounds = None
+        bounds = (-np.inf, np.inf)
 
     res = _curve_fit(
         model,

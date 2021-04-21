@@ -49,17 +49,24 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
             justify="center",
         )
 
-    # Make the file prefix equivalent to the YAML file, unless over-ridden.
-    if prefix is None:
-        prefix = path.splitext(path.basename(yaml_file))[0]
-
     if sampler_file is not None:
         likelihood = load_likelihood_from_yaml(yaml_file)
         sampler, runkw = load_sampler_from_yaml(
-            sampler_file, likelihood, override={"output_prefix": prefix}
+            sampler_file,
+            likelihood,
+            override={
+                "output_prefix": prefix
+                or likelihood.name
+                or path.splitext(path.basename(yaml_file))[0]
+            },
         )
     else:
-        sampler, runkw = load_from_yaml(yaml_file, override={"output_prefix": prefix})
+        sampler, runkw = load_from_yaml(
+            yaml_file,
+            override={
+                "output_prefix": prefix or path.splitext(path.basename(yaml_file))[0]
+            },
+        )
 
     if mpi.am_single_or_primary_process:
         console.print(Rule(f"Sampler [{sampler.__class__.__name__}] "))

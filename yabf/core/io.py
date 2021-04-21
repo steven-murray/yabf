@@ -1,5 +1,6 @@
 """Module defining data loaders for YAML files."""
 import numpy as np
+import os
 import pickle
 
 from .plugin import plugin_mount_factory
@@ -69,7 +70,7 @@ class CompositeLoader(DataLoader):
         self.loaders = loaders or DataLoader._plugins.values()
 
     def load(self, data):
-        if not isinstance(data, str):
+        if not isinstance(data, str) or not os.path.exists(data):
             return data
 
         for loader in self.loaders:

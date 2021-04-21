@@ -20,3 +20,4 @@ yabf/__pycache__/
 */PolyChordChains/
 .tox/
 pip-wheel-metadata/
+.vscode/
