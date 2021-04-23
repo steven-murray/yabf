@@ -56,16 +56,14 @@ class Sampler(metaclass=plugin_mount_factory()):
     @cached_property
     def output_dir(self):
         """The directory into which the sampler will write information."""
-        direc = self._output_dir / os.path.dirname(self._output_prefix)
+        if not self._output_prefix.absolute():
+            direc = self._output_dir / self._output_prefix.parent
+        else:
+            direc = self._output_prefix.parent
 
-        # Try to create the directory.
-        try:
-            os.makedirs(direc)
-            warnings.warn(
-                f"Proposed output directory '{direc}' did not exist. Created it."
-            )
-        except (FileExistsError, FileNotFoundError):
-            pass
+        if not direc.exists():
+            direc.mkdir(parents=True)
+
         return direc
 
     @cached_property

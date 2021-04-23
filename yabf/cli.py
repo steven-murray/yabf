@@ -79,6 +79,9 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
             override={"output_prefix": output_prefix},
         )
 
+    # make sure it's the same as the actual sampler.
+    output_prefix = sampler.output_file_prefix
+
     if mpi.am_single_or_primary_process:
         console.print(Rule(f"Sampler [{sampler.__class__.__name__}] "))
         console.print(f"[bold]Sampler Options:[/] {sampler.sampler_kwargs}")
