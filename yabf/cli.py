@@ -53,7 +53,7 @@ console = Console(width=100)
     default="pdf",
     type=click.Choice(["pdf", "png"], case_sensitive=False),
 )
-def main(yaml_file, plot, sampler_file, write, direc, prefix, plot_format):
+def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
     """Console script for yabf."""
     if mpi.am_single_or_primary_process:
         console.print(
@@ -63,7 +63,7 @@ def main(yaml_file, plot, sampler_file, write, direc, prefix, plot_format):
         )
 
     likelihood = load_likelihood_from_yaml(yaml_file)
-    output_prefix = Path(direc) / (prefix or likelihood.name or Path(yaml_file).stem)
+    output_prefix = Path(direc) / (label or likelihood.name or Path(yaml_file).stem)
     if not output_prefix.parent.exists():
         output_prefix.mkdir(parents=True)
 
