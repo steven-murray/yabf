@@ -6,6 +6,7 @@ import click
 import sys
 from getdist import plots
 from os import path
+from pathlib import Path
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -33,14 +34,26 @@ console = Console(width=100)
     "-s", "--sampler-file", default=None, type=click.Path(exists=True, dir_okay=False)
 )
 @click.option("-w/-W", "--write/--no-write", default=True)
-@click.option("--prefix", default=None)
+@click.option(
+    "-d",
+    "--direc",
+    default=".",
+    type=click.Path(exists=True, file_okay=False, writable=True),
+    help="Directory in which to save the output chains/plots",
+)
+@click.option(
+    "-l",
+    "--label",
+    default=None,
+    help="A unique name for the outputs. By default, the likelihood name.",
+)
 @click.option(
     "-f",
     "--plot-format",
     default="pdf",
     type=click.Choice(["pdf", "png"], case_sensitive=False),
 )
-def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
+def main(yaml_file, plot, sampler_file, write, direc, prefix, plot_format):
     """Console script for yabf."""
     if mpi.am_single_or_primary_process:
         console.print(
@@ -49,23 +62,21 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
             justify="center",
         )
 
+    likelihood = load_likelihood_from_yaml(yaml_file)
+    output_prefix = Path(direc) / (prefix or likelihood.name or Path(yaml_file).stem)
+    if not output_prefix.parent.exists():
+        output_prefix.mkdir(parents=True)
+
     if sampler_file is not None:
-        likelihood = load_likelihood_from_yaml(yaml_file)
         sampler, runkw = load_sampler_from_yaml(
             sampler_file,
             likelihood,
-            override={
-                "output_prefix": prefix
-                or likelihood.name
-                or path.splitext(path.basename(yaml_file))[0]
-            },
+            override={"output_prefix": output_prefix},
         )
     else:
         sampler, runkw = load_from_yaml(
             yaml_file,
-            override={
-                "output_prefix": prefix or path.splitext(path.basename(yaml_file))[0]
-            },
+            override={"output_prefix": output_prefix},
         )
 
     if mpi.am_single_or_primary_process:
@@ -150,11 +161,10 @@ def main(yaml_file, plot, sampler_file, write, prefix, plot_format):
                 mcsamples, params=list(likelihood.child_active_params), shaded=True
             )
 
-            plt.savefig(f"{prefix}_corner.{plot_format}")
+            plt.savefig(f"{output_prefix}_corner.{plot_format}")
 
         if write:
-            prefix = prefix or "output"
-            mcsamples.saveAsText(prefix, make_dirs="/" in prefix)
+            mcsamples.saveAsText(output_prefix)
 
     return 0
 
