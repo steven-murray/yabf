@@ -6,6 +6,7 @@ from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 from frozendict import frozendict
+from typing import Dict, List, Optional, Tuple
 
 from . import utils
 from .parameters import Param
@@ -30,7 +31,7 @@ class _ComponentTree(ABC):
     """A base class for all components and their containers."""
 
     @cached_property
-    def _in_active_mode(self):
+    def _in_active_mode(self) -> bool:
         return bool(self.child_active_params)
 
     @cached_property
@@ -38,7 +39,7 @@ class _ComponentTree(ABC):
         pass
 
     @cached_property
-    def child_components(self):
+    def child_components(self) -> OrderedDict:
         out = OrderedDict([(cmp.name, cmp) for cmp in self._subcomponents])
         for cmp in self._subcomponents:
             out.update(
@@ -47,7 +48,7 @@ class _ComponentTree(ABC):
         return out
 
     @cached_property
-    def common_components(self):
+    def common_components(self) -> list:
         """All components that occur more than once."""
         common = []
 
@@ -72,21 +73,21 @@ class _ComponentTree(ABC):
         return common
 
     @cached_property
-    def _subcomponent_names(self):
+    def _subcomponent_names(self) -> Tuple[str]:
         return tuple(c.name for c in self._subcomponents)
 
     def __getitem__(self, item):
         return self._loc_to_component(item)
 
     @property
-    def in_active_mode(self):
+    def in_active_mode(self) -> bool:
         """Whether this class is in active mode (i.e. being actively constrained)."""
         return self._in_active_mode or any(
             cmp.in_active_mode for cmp in self._subcomponents
         )
 
     @cached_property
-    def child_base_parameters(self):
+    def child_base_parameters(self) -> Tuple:
         """Tuple of all parameters in this and child components."""
         this = tuple(self.base_parameters) if hasattr(self, "base_parameters") else ()
         for cmp in self._subcomponents:
@@ -94,7 +95,7 @@ class _ComponentTree(ABC):
         return this
 
     @cached_property
-    def child_base_parameter_dct(self):
+    def child_base_parameter_dct(self) -> OrderedDict:
         """Set of all parameter names in this component and its sub-components."""
         res = list(getattr(self, "base_parameter_dct", []))
 
@@ -114,20 +115,20 @@ class _ComponentTree(ABC):
         """
         if loc == "":
             return self
-        else:
-            locs = loc.split(".")
 
-            scs = {cmp.name: cmp for cmp in self._subcomponents}
+        locs = loc.split(".")
 
-            if len(locs) == 1:
-                return scs[locs[0]]
+        scs = {cmp.name: cmp for cmp in self._subcomponents}
 
-            for cmp in self._subcomponents:
-                try:
-                    return cmp._loc_to_component(".".join(locs[1:]))
-                except KeyError:
-                    pass
-        raise KeyError("loc {} does not exist in any subcomponents".format(loc))
+        if len(locs) == 1:
+            return scs[locs[0]]
+
+        for cmp in self._subcomponents:
+            try:
+                return cmp._loc_to_component(".".join(locs[1:]))
+            except KeyError:
+                pass
+        raise KeyError(f"loc '{loc}' does not exist in any subcomponents")
 
     def _loc_to_parameter(self, loc: str):
         """
@@ -220,7 +221,7 @@ class _ComponentTree(ABC):
 
     def _active_param_locgen(self, param):
         for name in param.determines:
-            loc, _, paramname = name.rpartition(".")
+            paramname = name.rpartition(".")[-1]
             yield name, paramname
 
     def _fiducial_params(self, transform=True) -> dict:
@@ -428,18 +429,18 @@ class ParameterComponent(_ComponentTree):
     def param_converter(val):
         if isinstance(val, collections.abc.Mapping):
             return tuple(Param(name=k, **v) for k, v in val.items())
-        else:
-            out = []
-            for v in val:
-                if isinstance(v, str):
-                    out.append(Param(name=v))
-                elif isinstance(v, Param):
-                    out.append(v)
-                else:
-                    raise ValueError(
-                        "params must be dict, tuple of str, or tuple of Param"
-                    )
-            return tuple(out)
+
+        out = []
+        for v in val:
+            if isinstance(v, str):
+                out.append(Param(name=v))
+            elif isinstance(v, Param):
+                out.append(v)
+            else:
+                raise ValueError(
+                    f"params must be dict, tuple of str, or tuple of Param. Got {type(v)}"
+                )
+        return tuple(out)
 
     _name = attr.ib(
         validator=attr.validators.optional(attr.validators.instance_of(str))
@@ -490,9 +491,7 @@ class ParameterComponent(_ComponentTree):
         # Ensure unique names, and unique determines
         names = [p.name for p in value]
         if len(set(names)) != len(names):
-            raise NameError(
-                "not all param names are unique in {}: " "{}".format(self.name, names)
-            )
+            raise NameError(f"not all param names are unique in {self.name}: {names}")
 
         determines = sum((list(p.determines) for p in value), [])
         if len(set(determines)) != len(determines):

@@ -4,6 +4,7 @@ import numpy as np
 from attr import converters as cnv
 from attr import validators as vld
 from cached_property import cached_property
+from typing import Tuple
 
 
 def tuplify(x):
@@ -22,6 +23,11 @@ def texify(name):
         sub = r"{\rm %s}" % sub
         name = name.split("_")[0] + "_" + sub
     return name
+
+
+def positive(inst, att, val):
+    if val <= 0:
+        raise ValueError(f"Must be positive! Got {val}")
 
 
 @attr.s(frozen=True)
@@ -60,6 +66,67 @@ class Parameter:
     @latex.default
     def _ltx_default(self):
         return texify(self.name)
+
+
+def _tuple_or_float(inst, att, val):
+    if val is not None:
+        try:
+            float(val)
+        except TypeError:
+            val = tuple(float(v) if v is not None else None for v in val)
+            assert len(val) == inst.length
+
+
+@attr.s(frozen=True)
+class ParameterVector:
+    """
+    A fiducial vector of parameters in a model.
+
+    This is useful for defining a number of similar parameters
+    all at once (eg. coefficients of a polynomial).
+    """
+
+    name = attr.ib(validator=vld.instance_of(str))
+    length = attr.ib(validator=[vld.instance_of(int), positive])
+    _fiducial = attr.ib(validator=_tuple_or_float)
+    _min = attr.ib(-np.inf, validator=_tuple_or_float, kw_only=True)
+    _max = attr.ib(np.inf, validator=_tuple_or_float, kw_only=True)
+    latex = attr.ib(validator=vld.instance_of(str), kw_only=True)
+
+    def _tuplify(self, val):
+        if not hasattr(val, "__len__"):
+            return (val,) * self.length
+        else:
+            return tuple(float(v) for v in val)
+
+    @property
+    def fiducial(self) -> Tuple[float]:
+        return self._tuplify(self._fiducial)
+
+    @property
+    def min(self) -> Tuple[float]:
+        return self._tuplify(self._min)
+
+    @property
+    def max(self) -> Tuple[float]:
+        return self._tuplify(self._max)
+
+    @latex.default
+    def _ltx_default(self):
+        return texify(self.name) + "_%s"
+
+    def get_params(self) -> Tuple[Parameter]:
+        """Return all individual parameters from this vector."""
+        return tuple(
+            Parameter(
+                name=f"{self.name}_{i}",
+                fiducial=self.fiducial[i],
+                min=self.min[i],
+                max=self.max[i],
+                latex=self.latex % i,
+            )
+            for i in range(self.length)
+        )
 
 
 @attr.s(frozen=True)
@@ -137,7 +204,7 @@ class Param:
                 if np.isinf(self.min) or np.isinf(self.max):
                     raise ValueError(
                         "Cannot generate reference values for active "
-                        "parameter with infinite bounds: {}".format(self.name)
+                        f"parameter with infinite bounds: {self.name}"
                     )
 
                 ref = np.random.uniform(self.min, self.max, size=n)
@@ -154,13 +221,12 @@ class Param:
                     ref = self.ref(size=n)
                 except TypeError:
                     raise TypeError(
-                        "parameter '{}' does not have a valid value for "
-                        "ref".format(self.name)
+                        f"parameter '{self.name}' does not have a valid value for ref"
                     )
 
         if not np.all(np.logical_and(self.min <= ref, ref <= self.max)):
             raise ValueError(
-                f"param {self.name} produced a reference value outside " f"its domain."
+                f"param {self.name} produced a reference value outside its domain."
             )
 
         return ref
@@ -205,4 +271,56 @@ class Param:
             prior=self.prior,
             determines=self.determines,
             transforms=self.transforms,
+        )
+
+
+@attr.s(frozen=True)
+class ParamVec:
+    name = attr.ib(validator=vld.instance_of(str))
+    length = attr.ib(validator=[vld.instance_of(int), positive])
+    _fiducial = attr.ib(None, validator=_tuple_or_float)
+    _min = attr.ib(-np.inf, validator=_tuple_or_float, kw_only=True)
+    _max = attr.ib(np.inf, validator=_tuple_or_float, kw_only=True)
+    latex = attr.ib(validator=vld.instance_of(str), kw_only=True)
+
+    ref = attr.ib(None, kw_only=True)
+    prior = attr.ib(None, kw_only=True)
+    transforms = attr.ib(converter=tuplify, kw_only=True)
+
+    def _tuplify(self, val):
+        if not hasattr(val, "__len__"):
+            return (val,) * self.length
+        else:
+            return tuple(float(v) if v is not None else None for v in val)
+
+    @property
+    def fiducial(self) -> Tuple[float]:
+        return self._tuplify(self._fiducial)
+
+    @property
+    def min(self) -> Tuple[float]:
+        return self._tuplify(self._min)
+
+    @property
+    def max(self) -> Tuple[float]:
+        return self._tuplify(self._max)
+
+    @latex.default
+    def _ltx_default(self):
+        return texify(self.name) + "_%s"
+
+    def get_params(self) -> Tuple[Param]:
+        """Return a tuple of active Params for this vector."""
+        return tuple(
+            Param(
+                name=f"{self.name}_{i}",
+                fiducial=self.fiducial[i],
+                min=self.min[i],
+                max=self.max[i],
+                latex=self.latex % i,
+                ref=self.ref,
+                prior=self.prior,
+                transforms=self.transforms,
+            )
+            for i in range(self.length)
         )

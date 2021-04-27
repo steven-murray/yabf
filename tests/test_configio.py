@@ -1,6 +1,6 @@
 import yaml
 
-from yabf import LikelihoodContainer, load_likelihood_from_yaml
+from yabf import Likelihood, LikelihoodContainer, load_likelihood_from_yaml
 
 
 def test_round_trip():
@@ -38,3 +38,18 @@ likelihoods:
     lk2 = yaml.load(out, Loader=yaml.FullLoader)
 
     assert lk == lk2
+
+
+def test_paramvec():
+    yml = """
+likelihoods:
+    vec:
+        class: ParameterVecLikelihood
+        params:
+          x:
+            length: 3
+"""
+    lk = load_likelihood_from_yaml(yml)
+    assert isinstance(lk, Likelihood)
+    assert len(lk.child_active_params) == 3
+    assert "x_0" in lk.child_active_param_dct

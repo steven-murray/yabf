@@ -8,7 +8,7 @@ from . import utils, yaml
 from .component import Component
 from .io import CompositeLoader, DataLoader
 from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
-from .parameters import Param
+from .parameters import Param, ParamVec
 from .samplers import Sampler
 
 
@@ -50,9 +50,18 @@ def _construct_params(dct):
 
         pmaps = p.pop("parameter_mappings", None)
         if pmaps:
-            pmaps = [eval("lambda x: {}".format(pmap)) for pmap in pmaps]
+            pmaps = [eval(f"lambda x: {pmap}") for pmap in pmaps]
 
-        parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
+        if "length" in p:
+            parameters.extend(
+                list(
+                    ParamVec(
+                        pname, prior=prior, ref=ref, transforms=pmaps, **p
+                    ).get_params()
+                )
+            )
+        else:
+            parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
 
     return parameters
 
@@ -190,9 +199,8 @@ def _load_str_or_file(stream):
     stream_probably_yamlcode = False
 
     try:
-        st = open(stream)
-        stream = st.read()
-        st.close()
+        with open(stream) as st:
+            stream = st.read()
         file_not_found = False
     except FileNotFoundError:
         file_not_found = True

@@ -9,7 +9,7 @@ from .core.configio import (  # noqa
     load_sampler_from_yaml,
 )
 from .core.likelihood import Component, Likelihood, LikelihoodContainer  # noqa
-from .core.parameters import Param, Parameter  # noqa
+from .core.parameters import Param, Parameter, ParameterVector, ParamVec  # noqa
 from .core.samplers import emcee, polychord, run_map  # noqa
 
 __version__ = "0.0.2"
