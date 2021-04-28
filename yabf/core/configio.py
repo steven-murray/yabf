@@ -21,7 +21,10 @@ def _absfile(yml, fname):
 
 def _ensure_float(dct, name):
     if name in dct:
-        dct[name] = float(dct[name])
+        try:
+            dct[name] = float(dct[name])
+        except TypeError:
+            pass
 
 
 def _construct_dist(dct):
