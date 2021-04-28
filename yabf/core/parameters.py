@@ -74,6 +74,7 @@ def _tuple_or_float(inst, att, val):
             float(val)
         except TypeError:
             print(att)
+            print(val, inst.length)
             val = tuple(float(v) if v is not None else None for v in val)
             assert len(val) == inst.length
 
