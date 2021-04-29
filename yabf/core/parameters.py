@@ -309,6 +309,10 @@ class ParamVec:
     def _ltx_default(self):
         return texify(self.name) + "_%s"
 
+    @transforms.default
+    def _transforms_default(self):
+        return (None,) * len(self.determines)
+
     def get_params(self) -> Tuple[Param]:
         """Return a tuple of active Params for this vector."""
         return tuple(
