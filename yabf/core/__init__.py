@@ -1,6 +1,7 @@
 """Core functionality for YABF."""
 
 from . import (
+    _yaml,
     component,
     configio,
     io,
@@ -9,5 +10,6 @@ from . import (
     parameters,
     samplers,
     utils,
-    yaml,
 )
+
+_yaml.register_data_loader_tags()
