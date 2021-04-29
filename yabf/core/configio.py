@@ -129,6 +129,7 @@ def _construct_components(dct):
         derived = _construct_derived(cmp)
         fiducial = _construct_fiducial(cmp)
         subcmp = _construct_components(cmp)
+        print(params)
         components.append(
             cls(
                 name=name,
