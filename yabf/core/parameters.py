@@ -313,7 +313,7 @@ class ParamVec:
         """Return a tuple of active Params for this vector."""
         return tuple(
             Param(
-                name=f"{self.name}_{i}",
+                name=self.name % i if "%s" in self.name else f"{self.name}_{i}",
                 fiducial=self.fiducial[i],
                 min=self.min[i],
                 max=self.max[i],

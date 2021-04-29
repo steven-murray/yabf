@@ -238,11 +238,11 @@ class polychord(Sampler):
 
     @staticmethod
     def _index_to_string(*indx):
-        return "_" + "_".join([str(i) for i in indx])
+        return "_" + "_".join(str(i) for i in indx)
 
     @staticmethod
     def _index_to_latex(*indx):
-        return r"_{" + ",".join([str(i) for i in indx]) + r"}"
+        return r"_{" + ",".join(str(i) for i in indx) + r"}"
 
     def get_derived_paramnames(self):
         """Create a list of tuples specifying derived parameter names."""
