@@ -11,16 +11,22 @@ class LoadError(ValueError):
 
 
 class DataLoader(metaclass=plugin_mount_factory()):
+    _tag = None
+
+    @property
+    def tag(self):
+        return self._tag or self.__class__.__name__.split("Loader")[0].lower()
+
     def load(self, data):
         pass
 
 
-class DictLoader(DataLoader):
-    def load(self, data):
-        if type(data) is not dict:
-            raise LoadError()
+# class DictLoader(DataLoader):
+#     def load(self, data):
+#         if type(data) is not dict:
+#             raise LoadError()
 
-        return data
+#         return data
 
 
 class PickleLoader(DataLoader):
@@ -55,17 +61,14 @@ class npyLoader(DataLoader):
             raise LoadError()
 
 
-class ValueLoader(DataLoader):
-    def load(self, data):
-        return data
-
-
 # class HDF5Loader(DataLoader):
 #     def load(self, data):
 #         raise NotImplementedError()
 
 
 class CompositeLoader(DataLoader):
+    _tag = "load"
+
     def __init__(self, loaders=None):
         self.loaders = loaders or DataLoader._plugins.values()
 

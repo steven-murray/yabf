@@ -69,27 +69,10 @@ def _construct_data(dct, key="kwargs"):
     if key not in ["kwargs", "data"]:
         raise ValueError("key must be 'kwargs' or 'data'")
 
-    loader = DataLoader._plugins[dct.pop("data_loader", "CompositeLoader")]
-
     if key == "data" and key not in dct:
         return None
 
-    data_dct = dct.get(key, {})
-
-    if not isinstance(data_dct, dict):
-        return loader().load(data_dct)
-
-    # Load data
-    if loader is CompositeLoader:
-        loader = DataLoader._plugins[data_dct.pop("data_loader", "CompositeLoader")]
-
-    data = {}
-    for key, val in data_dct.items():
-        if key.startswith("dummy"):
-            data.update(loader().load(val))
-        else:
-            data.update({key: loader().load(val)})
-    return data
+    return dct.get(key, {})
 
 
 def _construct_derived(dct):

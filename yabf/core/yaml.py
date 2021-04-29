@@ -9,6 +9,8 @@ import os.path
 import yaml
 from yaml import *  # noqa
 
+from .io import DataLoader
+
 log = logging.getLogger(__name__)
 
 
@@ -85,6 +87,11 @@ def _move_up(obj, parent=None, indx=None):
 
     if hasattr(obj, "__getitem__") and "__del__" in obj and obj != "__del__":
         del parent[indx]
+
+
+for loader in DataLoader._plugins.values():
+    ld = loader()
+    ExtLoader.add_constructor(f"!{ld.tag}", ld.load)
 
 
 # Set ExtLoader as default.
