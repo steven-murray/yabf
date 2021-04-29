@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pypolychord as ppc
 import warnings
+import yaml
 from attr.validators import instance_of
 from cached_property import cached_property
 from emcee import EnsembleSampler
@@ -15,7 +16,6 @@ from pypolychord.settings import PolyChordSettings
 from scipy.optimize import curve_fit as _curve_fit
 from scipy.optimize import minimize
 
-from yabf.core import yaml
 from yabf.core.likelihood import _LikelihoodInterface
 
 from . import mpi
