@@ -90,30 +90,18 @@ def _move_up(obj, parent=None, indx=None):
         del parent[indx]
 
 
-# Make a nice little class that makes it easy to write out a file with tags.
-class FileToLoad:
-    def __init__(self, fname):
-        self.fname = Path(fname)
-
-    @staticmethod
-    def to_yaml(dumper, data):
-        return dumper.represent_scalar(f"!{data.fname.suffix}", str(data.fname))
-
-
-yaml.add_representer(FileToLoad, FileToLoad.to_yaml, Dumper=yaml.SafeDumper)
-
-
 for loader in DataLoader._plugins.values():
     ld = loader()
-    ExtLoader.add_constructor(
-        f"!{ld.tag}",
-        lambda loader, node: ld.load(
+
+    def fnc(loader, node):
+        print(node.value)
+        return ld.load(
             Path(loader._root) / node.value
             if not Path(node.value).exists()
             else node.value
-        ),
-    )
+        )
 
+    ExtLoader.add_constructor(f"!{ld.tag}", fnc)
 
 # Set ExtLoader as default.
 def load(*args, **kwargs):
