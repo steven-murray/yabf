@@ -285,7 +285,6 @@ class ParamVec:
 
     ref = attr.ib(None, kw_only=True)
     prior = attr.ib(None, kw_only=True)
-    transforms = attr.ib(converter=tuplify, kw_only=True)
 
     def _tuplify(self, val):
         if not hasattr(val, "__len__"):
@@ -309,10 +308,6 @@ class ParamVec:
     def _ltx_default(self):
         return texify(self.name) + "_%s"
 
-    @transforms.default
-    def _transforms_default(self):
-        return (None,) * len(self.determines)
-
     def get_params(self) -> Tuple[Param]:
         """Return a tuple of active Params for this vector."""
         return tuple(
@@ -324,7 +319,6 @@ class ParamVec:
                 latex=self.latex % i,
                 ref=self.ref,
                 prior=self.prior,
-                transforms=self.transforms,
             )
             for i in range(self.length)
         )
