@@ -95,19 +95,11 @@ for loader in DataLoader._plugins.values():
 
     def fnc(loader, node):
         pth = Path(node.value)
-        print(pth)
-        print(pth.exists())
-        print(loader._root)
         new_path = Path(loader._root) / pth if not pth.exists() else pth
-        print(new_path)
-        print(ld.load(new_path))
-        return ld.load(
-            Path(loader._root) / node.value
-            if not Path(node.value).exists()
-            else node.value
-        )
+        return ld.load(new_path)
 
     ExtLoader.add_constructor(f"!{ld.tag}", fnc)
+
 
 # Set ExtLoader as default.
 def load(*args, **kwargs):

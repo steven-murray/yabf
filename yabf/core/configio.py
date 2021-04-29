@@ -2,7 +2,9 @@
 import importlib
 import sys
 from os import path
+from pathlib import Path
 from scipy import stats
+from typing import Tuple
 
 from . import utils, yaml
 from .component import Component
@@ -34,8 +36,13 @@ def _construct_dist(dct):
     return getattr(stats, dct.pop("dist"))(**dct)
 
 
-def _construct_params(dct):
+def _construct_params(dct, config_path: Path):
     params = dct.pop("params", {})
+
+    if isinstance(params, list):
+        return params
+    elif isinstance(params, str):
+        params, _ = _read_sub_yaml(params, config_path.parent)
 
     parameters = []
     for pname, p in params.items():
@@ -83,87 +90,112 @@ def _construct_fiducial(dct):
     return dct.pop("fiducial", {})
 
 
-def _construct_components(dct):
-    comp = dct.get("components", {})
+def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
+    cmp = Path(cmp)
+    if not cmp.exists():
+        cmp = pth / cmp
+    if not cmp.exists():
+        raise IOError("Included component/likelihood sub-YAML does not exist: {cmp}")
+
+    with open(cmp, "r") as fl:
+        out = yaml.load(fl)
+
+    return out, cmp
+
+
+def _construct_components(dct, config_path: Path):
+    comp = dct.get("components", [])
     components = []
 
-    for name, cmp in comp.items():
-        try:
-            cls = cmp["class"]
-        except KeyError:
-            raise KeyError(
-                "Every component requires a key:val pair of class: class_name"
-            )
+    for cmp in comp:
+        if isinstance(cmp, str):
+            cmp, new_path = _read_sub_yaml(cmp, config_path.parent)
+        else:
+            new_path = config_path
 
-        try:
-            cls = Component._plugins[cls]
-        except KeyError:
-            raise ImportError(
-                f"The component '{name}' is not importable. Ensure you "
-                "have set the correct import_paths and external_modules"
-            )
-
-        cmp_data = _construct_data(cmp)
-        params = _construct_params(cmp)
-        derived = _construct_derived(cmp)
-        fiducial = _construct_fiducial(cmp)
-        subcmp = _construct_components(cmp)
-        components.append(
-            cls(
-                name=name,
-                params=params,
-                derived=derived,
-                fiducial=fiducial,
-                components=subcmp,
-                **cmp_data,
-            )
-        )
+        components.append(_construct_component(cmp, new_path))
 
     return components
 
 
-def _construct_likelihoods(config, ignore_data=False):
+def _construct_component(cmp, new_path):
+
+    try:
+        cls = cmp["class"]
+    except KeyError:
+        raise KeyError("Every component requires a key:val pair of class: class_name")
+
+    try:
+        cls = Component._plugins[cls]
+    except KeyError:
+        raise ImportError(
+            f"The component '{cmp['name']}' is not importable. Ensure you "
+            "have set the correct import_paths and external_modules"
+        )
+
+    cmp_data = _construct_data(cmp)
+    params = _construct_params(cmp)
+    derived = _construct_derived(cmp)
+    fiducial = _construct_fiducial(cmp)
+    subcmp = _construct_components(cmp, new_path)
+    return cls(
+        name=cmp["name"],
+        params=params,
+        derived=derived,
+        fiducial=fiducial,
+        components=subcmp,
+        **cmp_data,
+    )
+
+
+def _construct_likelihoods(config, config_path: Path, ignore_data=False):
     lks = config.get("likelihoods")
     likelihoods = []
 
-    for name, lk in lks.items():
-        try:
-            likelihood = lk["class"]
-        except KeyError:
-            raise KeyError(
-                "Every likelihood requires a key:val pair of class: class_name"
-            )
+    for lk in lks:
+        # If the user input a path to a YAML file, read it first.
+        if isinstance(lk, str):
+            lk, new_path = _read_sub_yaml(lk, config_path.parent)
+        else:
+            new_path = config_path
 
-        try:
-            cls = Likelihood._plugins[likelihood]
-        except KeyError:
-            raise ImportError(
-                f"The likelihood '{name}' is not importable. Ensure you "
-                "have set the correct import_paths and external_modules"
-            )
-
-        data = _construct_data(lk, key="data") if not ignore_data else None
-        kwargs = _construct_data(lk)
-        params = _construct_params(lk)
-        derived = _construct_derived(lk)
-        fiducial = _construct_fiducial(lk)
-        components = _construct_components(lk)
-        data_seed = config.get("data_seed", None)
-
-        likelihoods.append(
-            cls(
-                name=name,
-                params=params,
-                derived=derived,
-                fiducial=fiducial,
-                data=data,
-                data_seed=data_seed,
-                components=components,
-                **kwargs,
-            )
-        )
+        likelihoods.append(_construct_likelihood(lk, new_path))
 
     return likelihoods
+
+
+def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
+    try:
+        likelihood = lk["class"]
+    except KeyError:
+        raise KeyError("Every likelihood requires a key:val pair of class: class_name")
+
+    try:
+        cls = Likelihood._plugins[likelihood]
+    except KeyError:
+        raise ImportError(
+            f"The likelihood '{lk['name']}' is not importable. Ensure you "
+            "have set the correct import_paths and external_modules"
+        )
+
+    data = _construct_data(lk, key="data") if not ignore_data else None
+    kwargs = _construct_data(lk)
+    params = _construct_params(lk, config_path)
+    derived = _construct_derived(lk)
+    fiducial = _construct_fiducial(lk)
+    components = _construct_components(lk, config_path)
+    data_seed = lk.get("data_seed")
+
+    return cls(
+        name=lk["name"],
+        params=params,
+        derived=derived,
+        fiducial=fiducial,
+        data=data,
+        data_seed=data_seed,
+        components=components,
+        **kwargs,
+    )
 
 
 def _import_plugins(config):
@@ -225,7 +257,9 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
     # Load outer components
     name = config.get("name", name)
 
-    likelihoods = _construct_likelihoods(config, ignore_data=ignore_data)
+    likelihoods = _construct_likelihoods(
+        config, Path(stream.name), ignore_data=ignore_data
+    )
 
     if len(likelihoods) > 1:
         # Need to build a container
