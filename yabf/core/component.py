@@ -438,7 +438,7 @@ class ParameterComponent(_ComponentTree):
                 out.append(v)
             else:
                 raise ValueError(
-                    f"params must be dict, tuple of str, or tuple of Param. Got {type(v)}"
+                    f"Elements of params must be str or Param. Got {type(v)}"
                 )
         return tuple(out)
 
