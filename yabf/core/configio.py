@@ -57,11 +57,7 @@ def _construct_params(dct):
 
         if "length" in p:
             parameters.extend(
-                list(
-                    ParamVec(
-                        pname, prior=prior, ref=ref, transforms=pmaps, **p
-                    ).get_params()
-                )
+                list(ParamVec(pname, prior=prior, ref=ref, **p).get_params())
             )
         else:
             parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
@@ -129,7 +125,6 @@ def _construct_components(dct):
         derived = _construct_derived(cmp)
         fiducial = _construct_fiducial(cmp)
         subcmp = _construct_components(cmp)
-        print(params)
         components.append(
             cls(
                 name=name,
