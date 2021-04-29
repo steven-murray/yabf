@@ -9,7 +9,6 @@ from typing import Tuple
 
 from . import utils
 from .component import Component
-from .io import CompositeLoader, DataLoader
 from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
 from .parameters import Param, ParamVec
 from .samplers import Sampler

@@ -1,90 +1,85 @@
 """Module defining data loaders for YAML files."""
+import inspect
 import numpy as np
 import os
 import pickle
+import yaml
+from functools import wraps
+from typing import Callable
 
 from .plugin import plugin_mount_factory
+
+_DATA_LOADERS = {}
 
 
 class LoadError(ValueError):
     pass
 
 
-class DataLoader(metaclass=plugin_mount_factory()):
-    _tag = None
+def data_loader(tag=None):
+    def inner(fnc):
+        _DATA_LOADERS[fnc.__name__] = fnc
 
-    @property
-    def tag(self):
-        return self._tag or self.__class__.__name__.split("Loader")[0].lower()
+        new_tag = tag or fnc.__name__.split("_loader")[0]
+        fnc.tag = new_tag
 
-    def load(self, data):
-        pass
+        # ensure it only takes path to data.
+        assert len(inspect.signature(fnc).parameters) == 1
 
-
-# class DictLoader(DataLoader):
-#     def load(self, data):
-#         if type(data) is not dict:
-#             raise LoadError()
-
-#         return data
-
-
-class PickleLoader(DataLoader):
-    def load(self, data):
-        try:
-            with open(data, "rb") as f:
-                data = pickle.load(f)
-            return data
-        except FileNotFoundError:
-            raise
-        except Exception:
-            raise LoadError()
-
-
-class npzLoader(DataLoader):
-    def load(self, data):
-        try:
-            return dict(np.load(data))
-        except FileNotFoundError:
-            raise
-        except Exception:
-            raise LoadError()
-
-
-class npyLoader(DataLoader):
-    def load(self, data):
-        try:
-            return np.load(data)
-        except FileNotFoundError:
-            raise
-        except Exception:
-            raise LoadError()
-
-
-# class HDF5Loader(DataLoader):
-#     def load(self, data):
-#         raise NotImplementedError()
-
-
-class CompositeLoader(DataLoader):
-    _tag = "load"
-
-    def __init__(self, loaders=None):
-        self.loaders = loaders or DataLoader._plugins.values()
-
-    def load(self, data):
-        if not isinstance(data, str) or not os.path.exists(data):
-            return data
-
-        for loader in self.loaders:
-            if loader is self.__class__:
-                continue
-
+        @wraps(fnc)
+        def wrapper(data):
             try:
-                return loader().load(data)
-            except LoadError:
-                pass
+                return fnc(data)
+            except FileNotFoundError:
+                raise
+            except Exception as e:
+                raise LoadError(str(e))
 
-        raise LoadError(
-            f"None of the specified loaders were able to load the data: {data}"
-        )
+        def yaml_fnc(loader, node):
+            return wrapper(node.value)
+
+        yaml.add_constructor(f"!{new_tag}", yaml_fnc, Loader=yaml.FullLoader)
+        yaml.add_constructor(f"!{new_tag}", yaml_fnc, Loader=yaml.Loader)
+
+        return wrapper
+
+    return inner
+
+
+def get_loader(name) -> Callable:
+    if name not in _DATA_LOADERS:
+        for fnc in _DATA_LOADERS.values():
+            if fnc.tag == name:
+                return fnc
+
+    return _DATA_LOADERS[name]
+
+
+@data_loader("pkl")
+def pickle_loader(data):
+    with open(data, "rb") as f:
+        data = pickle.load(f)
+    return data
+
+
+@data_loader()
+def npz_loader(data):
+    return dict(np.load(data))
+
+
+@data_loader()
+def npy_loader(data):
+    return np.load(data)
+
+
+@data_loader("load")
+def composite_loader(data):
+    for name, loader in _DATA_LOADERS.items():
+        if name == "composite_loader":
+            continue
+        try:
+            return loader(data)
+        except LoadError:
+            pass
+
+    raise LoadError(f"None of the specified loaders were able to load the data: {data}")
