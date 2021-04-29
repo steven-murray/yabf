@@ -7,6 +7,7 @@ Swiped from https://gist.github.com/joshbode/569627ced3076931b02f
 import logging
 import os.path
 import yaml
+from pathlib import Path
 from yaml import *  # noqa
 
 from .io import DataLoader
@@ -58,16 +59,16 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
         extension = os.path.splitext(filename)[1].lstrip(".")
 
         with open(filename, "r") as f:
-            if extension in ("yaml", "yml"):
-                out = yaml.load(f, ExtLoader)
-                if isinstance(out, list):
-                    out.append("__del__")
-                elif isinstance(out, dict):
-                    out["__del__"] = True
-
-                return out
-            else:
+            if extension not in ("yaml", "yml"):
                 return "".join(f.readlines())
+
+            out = yaml.load(f, ExtLoader)
+            if isinstance(out, list):
+                out.append("__del__")
+            elif isinstance(out, dict):
+                out["__del__"] = True
+
+            return out
 
 
 def _move_up(obj, parent=None, indx=None):
@@ -91,7 +92,14 @@ def _move_up(obj, parent=None, indx=None):
 
 for loader in DataLoader._plugins.values():
     ld = loader()
-    ExtLoader.add_constructor(f"!{ld.tag}", ld.load)
+    ExtLoader.add_constructor(
+        f"!{ld.tag}",
+        lambda loader, node: ld.load(
+            Path(loader._root) / node.value
+            if not Path(node.value).exists()
+            else node.value
+        ),
+    )
 
 
 # Set ExtLoader as default.
