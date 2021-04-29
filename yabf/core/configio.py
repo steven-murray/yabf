@@ -1,12 +1,13 @@
 """Module defining routines for reading/writing config files."""
 import importlib
 import sys
+import yaml
 from os import path
 from pathlib import Path
 from scipy import stats
 from typing import Tuple
 
-from . import utils, yaml
+from . import utils
 from .component import Component
 from .io import CompositeLoader, DataLoader
 from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
