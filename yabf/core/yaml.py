@@ -32,7 +32,7 @@ class ExtLoader(yaml.FullLoader, metaclass=ExtLoaderMeta):
     def __init__(self, stream):
         """Initialise Loader."""
         try:
-            self._root = os.path.split(stream.name)[0]
+            self._root = os.path.split(os.path.realpath(stream.name))[0]
         except AttributeError:
             self._root = os.path.curdir
 
@@ -97,6 +97,7 @@ for loader in DataLoader._plugins.values():
         pth = Path(node.value)
         print(pth)
         print(pth.exists())
+        print(loader._root)
         new_path = Path(loader._root) / pth if not pth.exists() else pth
         print(new_path)
         print(ld.load(new_path))
