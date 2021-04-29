@@ -134,7 +134,7 @@ def _construct_component(cmp, new_path):
         )
 
     cmp_data = _construct_data(cmp)
-    params = _construct_params(cmp)
+    params = _construct_params(cmp, new_path)
     derived = _construct_derived(cmp)
     fiducial = _construct_fiducial(cmp)
     subcmp = _construct_components(cmp, new_path)
