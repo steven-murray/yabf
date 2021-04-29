@@ -94,10 +94,12 @@ for loader in DataLoader._plugins.values():
     ld = loader()
 
     def fnc(loader, node):
-        print(node.value)
-        print(Path(loader._root) / node.value
-            if not Path(node.value).exists()
-            else node.value)
+        pth = Path(node.value)
+        print(pth)
+        print(pth.exists())
+        new_path = Path(loader._root) / pth if not pth.exists() else pth
+        print(new_path)
+        print(ld.load(new_path))
         return ld.load(
             Path(loader._root) / node.value
             if not Path(node.value).exists()
