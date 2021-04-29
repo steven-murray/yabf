@@ -19,4 +19,5 @@ def register_data_loader_tags():
             new_path = Path(loader._root) / pth if not pth.exists() else pth
             return ld.load(new_path)
 
-        yaml.add_constructor(f"!{ld.tag}", fnc)
+        yaml.add_constructor(f"!{ld.tag}", fnc, Loader=yaml.FullLoader)
+        yaml.add_constructor(f"!{ld.tag}", fnc, Loader=yaml.Loader)
