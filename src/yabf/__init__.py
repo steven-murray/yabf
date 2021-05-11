@@ -20,4 +20,5 @@ from .core.configio import (  # noqa
 )
 from .core.likelihood import Component, Likelihood, LikelihoodContainer  # noqa
 from .core.parameters import Param, Parameter, ParameterVector, ParamVec  # noqa
-from .core.samplers import emcee, polychord, run_map  # noqa
+from .core.samplers import run_map  # noqa
+from .samplers import *
