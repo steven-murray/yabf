@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """Top-level package for yabf."""
+try:
+    from importlib.metadata import PackageNotFoundError, version
+except ImportError:
+    from importlib_metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version(__name__)
+except PackageNotFoundError:
+    # package is not installed
+    pass
 
 from .core import mpi, samplers  # noqa
 from .core.configio import (  # noqa
@@ -11,5 +21,3 @@ from .core.configio import (  # noqa
 from .core.likelihood import Component, Likelihood, LikelihoodContainer  # noqa
 from .core.parameters import Param, Parameter, ParameterVector, ParamVec  # noqa
 from .core.samplers import emcee, polychord, run_map  # noqa
-
-__version__ = "0.0.2"
