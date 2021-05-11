@@ -21,3 +21,4 @@ yabf/__pycache__/
 .tox/
 pip-wheel-metadata/
 .vscode/
+docs/_build
