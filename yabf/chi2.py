@@ -27,7 +27,7 @@ class Chi2:
 
     def get_sigma(self, model, **params):
         if self.sigma is not None:
-            if "sigma" in self.active_params_dct:
+            if "sigma" in self.active_params:
                 # Act as if sigma is important
                 return params["sigma"] * self.sigma
             else:

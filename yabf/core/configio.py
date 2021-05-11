@@ -58,7 +58,7 @@ def _construct_params(dct, config_path: Path):
         if prior:
             prior = _construct_dist(prior)
 
-        pmaps = p.pop("parameter_mappings", None)
+        pmaps = p.pop("transforms", None)
         if pmaps:
             pmaps = [eval(f"lambda x: {pmap}") for pmap in pmaps]
 
@@ -70,16 +70,6 @@ def _construct_params(dct, config_path: Path):
             parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
 
     return parameters
-
-
-def _construct_data(dct, key="kwargs"):
-    if key not in ["kwargs", "data"]:
-        raise ValueError("key must be 'kwargs' or 'data'")
-
-    if key == "data" and key not in dct:
-        return None
-
-    return dct.get(key, {})
 
 
 def _construct_derived(dct):
@@ -95,7 +85,7 @@ def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
     if not cmp.exists():
         cmp = pth / cmp
     if not cmp.exists():
-        raise IOError("Included component/likelihood sub-YAML does not exist: {cmp}")
+        raise IOError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
 
     with open(cmp, "r") as fl:
         out = yaml.load(fl)
@@ -104,7 +94,7 @@ def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
 
 
 def _construct_components(dct, config_path: Path):
-    comp = dct.get("components", [])
+    comp = dct.pop("components", [])
     components = []
 
     for cmp in comp:
@@ -121,7 +111,7 @@ def _construct_components(dct, config_path: Path):
 def _construct_component(cmp, new_path):
 
     try:
-        cls = cmp["class"]
+        cls = cmp.pop("class")
     except KeyError:
         raise KeyError("Every component requires a key:val pair of class: class_name")
 
@@ -133,18 +123,17 @@ def _construct_component(cmp, new_path):
             "have set the correct import_paths and external_modules"
         )
 
-    cmp_data = _construct_data(cmp)
     params = _construct_params(cmp, new_path)
     derived = _construct_derived(cmp)
     fiducial = _construct_fiducial(cmp)
     subcmp = _construct_components(cmp, new_path)
     return cls(
-        name=cmp["name"],
+        name=cmp.pop("name"),
         params=params,
         derived=derived,
         fiducial=fiducial,
         components=subcmp,
-        **cmp_data,
+        **cmp,
     )
 
 
@@ -166,7 +155,7 @@ def _construct_likelihoods(config, config_path: Path, ignore_data=False):
 
 def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
     try:
-        likelihood = lk["class"]
+        likelihood = lk.pop("class")
     except KeyError:
         raise KeyError("Every likelihood requires a key:val pair of class: class_name")
 
@@ -178,8 +167,6 @@ def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
             "have set the correct import_paths and external_modules"
         )
 
-    data = _construct_data(lk, key="data") if not ignore_data else None
-    kwargs = _construct_data(lk)
     params = _construct_params(lk, config_path)
     derived = _construct_derived(lk)
     fiducial = _construct_fiducial(lk)
@@ -187,14 +174,13 @@ def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
     data_seed = lk.get("data_seed")
 
     return cls(
-        name=lk["name"],
+        name=lk.pop("name"),
         params=params,
         derived=derived,
         fiducial=fiducial,
-        data=data,
         data_seed=data_seed,
         components=components,
-        **kwargs,
+        **lk,
     )
 
 
@@ -258,7 +244,7 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
     name = config.get("name", name)
 
     likelihoods = _construct_likelihoods(
-        config, Path(stream.name), ignore_data=ignore_data
+        config, Path(getattr(stream, "name", stream)), ignore_data=ignore_data
     )
 
     if len(likelihoods) > 1:

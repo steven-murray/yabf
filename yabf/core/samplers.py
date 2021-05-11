@@ -291,6 +291,7 @@ class polychord(Sampler):
             self.nderived,
             base_dir=str(self.output_dir),
             file_root=str(self.output_file_prefix),
+            nlive=kwargs.pop("nlive", 100 * self.nparams),
             **kwargs,
         )
 

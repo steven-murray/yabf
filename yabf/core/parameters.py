@@ -1,10 +1,14 @@
 """Module defining parameter objects."""
+from __future__ import annotations
+
 import attr
 import numpy as np
+import yaml
 from attr import converters as cnv
 from attr import validators as vld
 from cached_property import cached_property
-from typing import Tuple
+from collections import OrderedDict
+from typing import Tuple, Union
 
 
 def tuplify(x):
@@ -273,6 +277,32 @@ class Param:
             transforms=self.transforms,
         )
 
+    def __getstate__(self):
+        """Obtain a simple input state of the class that can initialize it."""
+        out = attr.asdict(self)
+
+        if self.transforms == (None,):
+            del out["transforms"]
+        if self.prior is None:
+            del out["prior"]
+        if self.ref is None:
+            del out["ref"]
+        if self.determines == (self.name,):
+            del out["determines"]
+        if self.latex == self.name:
+            del out["latex"]
+
+        return out
+
+    def as_dict(self):
+        """Simple representation of the class as a dict.
+
+        No "name" is included in the dict.
+        """
+        out = self.__getstate__()
+        del out["name"]
+        return out
+
 
 @attr.s(frozen=True)
 class ParamVec:
@@ -306,7 +336,7 @@ class ParamVec:
 
     @latex.default
     def _ltx_default(self):
-        return texify(self.name) + "_%s"
+        return texify(self.name) + "_%s" if "%s" not in self.name else texify(self.name)
 
     def get_params(self) -> Tuple[Param]:
         """Return a tuple of active Params for this vector."""
@@ -321,4 +351,153 @@ class ParamVec:
                 prior=self.prior,
             )
             for i in range(self.length)
+        )
+
+
+@attr.s
+class Params:
+    _param_list = attr.ib(converter=tuple)
+
+    @_param_list.validator
+    def _param_list_vld(self, att, val):
+        for v in val:
+            if not isinstance(v, Param):
+                raise ValueError("params must be a sequence of Param objects")
+
+    def __attrs_post_init__(self):
+        """Save the parameters in ordered dictionary form."""
+        self._prm_dict = OrderedDict((p.name, p) for p in self._param_list)
+
+    def __getitem__(self, item: Union[str, int]):
+        """Make the params like a dictionary AND a list.
+
+        Parameters
+        ----------
+        item
+            Either a string specifying a parameter name, or
+            an integer specifying its place in the parameter list.
+
+        Returns
+        -------
+        Param
+            The parameter instance.
+        """
+        if isinstance(item, int):
+            return self._param_list[item]
+
+        return self._prm_dict[item]
+
+    def __getattr__(self, item: str) -> Param:
+        """Get an attribute.
+
+        Parameters
+        ----------
+        item
+            The parameter name to retrieve.
+
+        Returns
+        -------
+        Param
+            The parameter instance.
+
+        Raises
+        ------
+        AttributeError
+            If the parameter name does not exist.
+        """
+        if item in super().__getattribute__("_prm_dict"):
+            return self._prm_dict[item]
+        else:
+            raise AttributeError
+
+    def items(self):
+        """Equivalent to ``dict.items()``.
+
+        Yields
+        ------
+        item
+            A 2-tuple of (str, :class:`Param`) for each parameter.
+        """
+        yield from self._prm_dict.items()
+
+    def keys(self):
+        """Equivalnet to ``dict.keys()``.
+
+        Yields
+        ------
+        key
+            String parameter names.
+        """
+        yield from self._prm_dict.keys()
+
+    def values(self):
+        """Equivalent to ``dict.values()``.
+
+        Yields
+        ------
+        :class:`Param`
+            The parameter instances.
+        """
+        yield from self._prm_dict.values()
+
+    def __len__(self) -> int:
+        """The number of parameters."""
+        return len(self._param_list)
+
+    def __contains__(self, key: Union[str, Param]) -> bool:
+        """Whether the given parameter exists in this group.
+
+        Parameters
+        ----------
+        key
+            Either a parameter name, or :class:`Param` instance to
+            check for existence.
+
+        Returns
+        -------
+        bool
+            True if the parameter is in the instance, False otherwise.
+        """
+        if isinstance(key, str) and key in self._prm_dict:
+            return True
+        elif isinstance(key, Param) and key in self._prm_list:
+            return True
+        return False
+
+    def __add__(self, x: Union[Tuple[Param], Params]) -> Params:
+        """Magic method for adding two :class:`Param` instances.
+
+        Parameters
+        ----------
+        x :
+            The object to add to this instance. If a tuple,
+            must be a tuple of parameters.
+
+        Returns
+        -------
+        :class:`Param`
+            A new instance with all the parameters in it.
+        """
+        x = Params(x)
+        return Params(self._param_list + x._param_list)
+
+    def as_dict(self) -> dict:
+        """Represent the object as a plain dictionary.
+
+        Useful for serializing.
+
+        Returns
+        -------
+        dict
+            The serialized dictionary.
+        """
+        return {name: param.as_dict() for name, param in self._prm_dict.items()}
+
+    def to_yaml(self):
+        """Convert the params to a YAML-style representation."""
+        return "\n".join(
+            yaml.dump(
+                {name: attr.asdict(param, filter=lambda att, val: att.name != "name")}
+            )
+            for name, param in self._prm_dict.items()
         )

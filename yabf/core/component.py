@@ -9,7 +9,7 @@ from frozendict import frozendict
 from typing import Dict, List, Optional, Tuple
 
 from . import utils
-from .parameters import Param
+from .parameters import Param, Params
 
 
 def _only_active(func):
@@ -209,11 +209,11 @@ class _ComponentTree(ABC):
                     )
                 )
 
-        return tuple(out)
+        return Params(tuple(out))
 
-    @cached_property
-    def child_active_param_dct(self):
-        return OrderedDict([(p.name, p) for p in self.child_active_params])
+    # @cached_property
+    # def child_active_param_dct(self):
+    #     return OrderedDict([(p.name, p) for p in self.child_active_params])
 
     @cached_property
     def total_active_params(self):
@@ -224,7 +224,7 @@ class _ComponentTree(ABC):
             paramname = name.rpartition(".")[-1]
             yield name, paramname
 
-    def _fiducial_params(self, transform=True) -> dict:
+    def _fiducial_params(self, transform=True) -> Dict[str, float]:
         """Dictionary of fiducial parameters for all subcomponents."""
         dct = {}
 
@@ -252,11 +252,11 @@ class _ComponentTree(ABC):
         return dct
 
     @cached_property
-    def fiducial_params(self):
+    def fiducial_params(self) -> Dict[str, float]:
         return self._fiducial_params()
 
     @cached_property
-    def fiducial_params_untransformed(self):
+    def fiducial_params_untransformed(self) -> Dict[str, float]:
         return self._fiducial_params(transform=False)
 
     def _fill_params(self, params=None, transform=True):
@@ -280,14 +280,14 @@ class _ComponentTree(ABC):
                 raise ValueError(
                     f"params must be a dict or list with same length as"
                     f"child_active_params (and in that order). \n"
-                    f"Active params: {self.child_active_param_dct.keys()}\n"
+                    f"Active params: {self.child_active_params.keys()}\n"
                     f"Received Params: {params}"
                 )
 
         for k, v in list(params.items()):
             # Treat params first as if they are active
-            if not using_list and k in self.child_active_param_dct:
-                aparam = self.child_active_param_dct[k]
+            if not using_list and k in self.child_active_params:
+                aparam = self.child_active_params[k]
                 vals = (
                     aparam.transform(v) if transform else [v] * len(aparam.determines)
                 )
@@ -366,13 +366,12 @@ class _ComponentTree(ABC):
         if params is None:
             params = self.child_active_params
         else:
-            names = list(self.child_active_param_dct.keys())
-            if any(p not in names for p in params):
+            if any(p not in self.child_active_params for p in params):
                 raise ValueError(
                     "Only currently active parameters may be specified in params"
                 )
 
-            params = [self.child_active_params[names.index(n)] for n in params]
+            params = [self.child_active_params[name] for name in params]
 
         refs = []
 
@@ -428,7 +427,7 @@ class ParameterComponent(_ComponentTree):
     @staticmethod
     def param_converter(val):
         if isinstance(val, collections.abc.Mapping):
-            return tuple(Param(name=k, **v) for k, v in val.items())
+            return Params(tuple(Param(name=k, **v) for k, v in val.items()))
 
         out = []
         for v in val:
@@ -440,7 +439,7 @@ class ParameterComponent(_ComponentTree):
                 raise ValueError(
                     f"Elements of params must be str or Param. Got {type(v)}"
                 )
-        return tuple(out)
+        return Params(tuple(out))
 
     _name = attr.ib(
         validator=attr.validators.optional(attr.validators.instance_of(str))
@@ -541,7 +540,7 @@ class ParameterComponent(_ComponentTree):
         return {p.name: p for p in self.base_parameters}
 
     @cached_property
-    def active_params(self) -> tuple:
+    def active_params(self) -> Params:
         """
         Tuple of actively constrained parameters.
 
@@ -555,15 +554,15 @@ class ParameterComponent(_ComponentTree):
             else:
                 out.append(v)
 
-        return tuple(out)
+        return Params(tuple(out))
 
-    @cached_property
-    def active_params_dct(self) -> OrderedDict:
-        """Actively constrained parameters in this component.
+    # @cached_property
+    # def active_params_dct(self) -> OrderedDict:
+    #     """Actively constrained parameters in this component.
 
-        Keys are string names, and values are the :class:`~Param` objects.
-        """
-        return OrderedDict([(p.name, p) for p in self.active_params])
+    #     Keys are string names, and values are the :class:`~Param` objects.
+    #     """
+    #     return OrderedDict([(p.name, p) for p in self.active_params])
 
     @cached_property
     def _base_to_param_mapping(self) -> dict:
