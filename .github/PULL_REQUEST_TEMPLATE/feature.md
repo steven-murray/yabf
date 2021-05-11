@@ -1,5 +1,5 @@
 <!--
-Thank you for creating a PR on hmf!
+Thank you for creating a PR on yabf!
 
 Please read through the following and check the boxes to ensure
 your PR meets our coding standards and that it follows the
