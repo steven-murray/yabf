@@ -13,6 +13,7 @@ bump2version $PART
 # Now add in stuff to the changelog
 python changethelog.py ${NEWVERSION}
 
+
 # Now commit
 git add .
 git commit -m "Bump Version: ${OLDVERSION} -> ${NEWVERSION}"
