@@ -35,7 +35,7 @@ likelihoods:
     assert "small.shared" in lk.common_components[0][1]
 
     out = yaml.dump(lk)
-    lk2 = yaml.load(out, Loader=yaml.FullLoader)
+    lk2 = yaml.load(out, Loader=yaml.Loader)
 
     assert lk == lk2
 

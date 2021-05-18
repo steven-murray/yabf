@@ -208,7 +208,7 @@ def _load_str_or_file(stream):
         stream_probably_yamlcode = True
         file_not_found = False
     try:
-        return yaml.load(stream)
+        return yaml.load(stream, Loader=yaml.FullLoader)
     except Exception as e:
         if file_not_found:
             msg = f"""
