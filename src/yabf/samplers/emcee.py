@@ -1,6 +1,6 @@
 """The emcee sampler wrapper into yabf."""
-import cached_property
 import numpy as np
+from cached_property import cached_property
 from emcee import EnsembleSampler
 from getdist import MCSamples
 
