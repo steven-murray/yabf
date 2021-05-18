@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!bash
 set -e
 
 PART=$1
