@@ -13,7 +13,7 @@ jobs:
     - name: pull-request
       uses: repo-sync/pull-request@v2
       with:
-        source_branch: "master"
+        source_branch: "main"
         destination_branch: "dev"
         pr_title: "Pulling master into dev"               # Title of pull request
         pr_body: ":crown: *An automated PR*"              # Full markdown support, requires pr_title to be set
