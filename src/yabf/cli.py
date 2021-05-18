@@ -4,6 +4,7 @@
 
 import click
 import sys
+import time
 from getdist import plots
 from os import path
 from pathlib import Path
@@ -23,8 +24,6 @@ try:
     HAVE_MPL = True
 except ImportError:
     HAVE_MPL = False
-
-console = Console(width=100)
 
 
 @click.command()
@@ -56,11 +55,13 @@ console = Console(width=100)
 def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
     """Console script for yabf."""
     if mpi.am_single_or_primary_process:
+        console = Console(width=100)
         console.print(
             Panel("Welcome to yabf!", box=box.DOUBLE_EDGE),
             style="bold",
             justify="center",
         )
+        start = time.time()
 
     likelihood = load_likelihood_from_yaml(yaml_file)
     output_prefix = Path(direc) / (label or likelihood.name or Path(yaml_file).stem)
@@ -169,6 +170,12 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         if write:
             mcsamples.saveAsText(output_prefix)
 
+        tot = time.time() - start
+
+        console.print(
+            f":tada: Finished in {tot//3600}:{(tot%3600)//60}:{(tot%3600)%60} (h:m:s) :tada:",
+            style="bold green",
+        )
     return 0
 
 
