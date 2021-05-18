@@ -1,14 +1,16 @@
 """Module defining routines for reading/writing config files."""
 import importlib
 import sys
+import yaml
 from os import path
+from pathlib import Path
 from scipy import stats
+from typing import Tuple
 
-from . import utils, yaml
+from . import utils
 from .component import Component
-from .io import CompositeLoader, DataLoader
 from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
-from .parameters import Param
+from .parameters import Param, ParamVec
 from .samplers import Sampler
 
 
@@ -21,7 +23,10 @@ def _absfile(yml, fname):
 
 def _ensure_float(dct, name):
     if name in dct:
-        dct[name] = float(dct[name])
+        try:
+            dct[name] = float(dct[name])
+        except TypeError:
+            pass
 
 
 def _construct_dist(dct):
@@ -31,8 +36,13 @@ def _construct_dist(dct):
     return getattr(stats, dct.pop("dist"))(**dct)
 
 
-def _construct_params(dct):
+def _construct_params(dct, config_path: Path):
     params = dct.pop("params", {})
+
+    if isinstance(params, list):
+        return params
+    elif isinstance(params, str):
+        params, _ = _read_sub_yaml(params, config_path.parent)
 
     parameters = []
     for pname, p in params.items():
@@ -48,40 +58,18 @@ def _construct_params(dct):
         if prior:
             prior = _construct_dist(prior)
 
-        pmaps = p.pop("parameter_mappings", None)
+        pmaps = p.pop("transforms", None)
         if pmaps:
-            pmaps = [eval("lambda x: {}".format(pmap)) for pmap in pmaps]
+            pmaps = [eval(f"lambda x: {pmap}") for pmap in pmaps]
 
-        parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
+        if "length" in p:
+            parameters.extend(
+                list(ParamVec(pname, prior=prior, ref=ref, **p).get_params())
+            )
+        else:
+            parameters.append(Param(pname, prior=prior, ref=ref, transforms=pmaps, **p))
 
     return parameters
-
-
-def _construct_data(dct, key="kwargs"):
-    if key not in ["kwargs", "data"]:
-        raise ValueError("key must be 'kwargs' or 'data'")
-
-    loader = DataLoader._plugins[dct.pop("data_loader", "CompositeLoader")]
-
-    if key == "data" and key not in dct:
-        return None
-
-    data_dct = dct.get(key, {})
-
-    if not isinstance(data_dct, dict):
-        return loader().load(data_dct)
-
-    # Load data
-    if loader is CompositeLoader:
-        loader = DataLoader._plugins[data_dct.pop("data_loader", "CompositeLoader")]
-
-    data = {}
-    for key, val in data_dct.items():
-        if key.startswith("dummy"):
-            data.update(loader().load(val))
-        else:
-            data.update({key: loader().load(val)})
-    return data
 
 
 def _construct_derived(dct):
@@ -92,87 +80,108 @@ def _construct_fiducial(dct):
     return dct.pop("fiducial", {})
 
 
-def _construct_components(dct):
-    comp = dct.get("components", {})
+def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
+    cmp = Path(cmp)
+    if not cmp.exists():
+        cmp = pth / cmp
+    if not cmp.exists():
+        raise IOError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
+
+    with open(cmp, "r") as fl:
+        out = yaml.load(fl)
+
+    return out, cmp
+
+
+def _construct_components(dct, config_path: Path):
+    comp = dct.pop("components", [])
     components = []
 
-    for name, cmp in comp.items():
-        try:
-            cls = cmp["class"]
-        except KeyError:
-            raise KeyError(
-                "Every component requires a key:val pair of class: class_name"
-            )
+    for cmp in comp:
+        if isinstance(cmp, str):
+            cmp, new_path = _read_sub_yaml(cmp, config_path.parent)
+        else:
+            new_path = config_path
 
-        try:
-            cls = Component._plugins[cls]
-        except KeyError:
-            raise ImportError(
-                f"The component '{name}' is not importable. Ensure you "
-                "have set the correct import_paths and external_modules"
-            )
-
-        cmp_data = _construct_data(cmp)
-        params = _construct_params(cmp)
-        derived = _construct_derived(cmp)
-        fiducial = _construct_fiducial(cmp)
-        subcmp = _construct_components(cmp)
-        components.append(
-            cls(
-                name=name,
-                params=params,
-                derived=derived,
-                fiducial=fiducial,
-                components=subcmp,
-                **cmp_data,
-            )
-        )
+        components.append(_construct_component(cmp, new_path))
 
     return components
 
 
-def _construct_likelihoods(config, ignore_data=False):
+def _construct_component(cmp, new_path):
+
+    try:
+        cls = cmp.pop("class")
+    except KeyError:
+        raise KeyError("Every component requires a key:val pair of class: class_name")
+
+    try:
+        cls = Component._plugins[cls]
+    except KeyError:
+        raise ImportError(
+            f"The component '{cmp['name']}' is not importable. Ensure you "
+            "have set the correct import_paths and external_modules"
+        )
+
+    params = _construct_params(cmp, new_path)
+    derived = _construct_derived(cmp)
+    fiducial = _construct_fiducial(cmp)
+    subcmp = _construct_components(cmp, new_path)
+    return cls(
+        name=cmp.pop("name"),
+        params=params,
+        derived=derived,
+        fiducial=fiducial,
+        components=subcmp,
+        **cmp,
+    )
+
+
+def _construct_likelihoods(config, config_path: Path, ignore_data=False):
     lks = config.get("likelihoods")
     likelihoods = []
 
-    for name, lk in lks.items():
-        try:
-            likelihood = lk["class"]
-        except KeyError:
-            raise KeyError(
-                "Every likelihood requires a key:val pair of class: class_name"
-            )
+    for lk in lks:
+        # If the user input a path to a YAML file, read it first.
+        if isinstance(lk, str):
+            lk, new_path = _read_sub_yaml(lk, config_path.parent)
+        else:
+            new_path = config_path
 
-        try:
-            cls = Likelihood._plugins[likelihood]
-        except KeyError:
-            raise ImportError(
-                f"The likelihood '{name}' is not importable. Ensure you "
-                "have set the correct import_paths and external_modules"
-            )
-
-        data = _construct_data(lk, key="data") if not ignore_data else None
-        kwargs = _construct_data(lk)
-        params = _construct_params(lk)
-        derived = _construct_derived(lk)
-        fiducial = _construct_fiducial(lk)
-        components = _construct_components(lk)
-        data_seed = config.get("data_seed", None)
-
-        likelihoods.append(
-            cls(
-                name=name,
-                params=params,
-                derived=derived,
-                fiducial=fiducial,
-                data=data,
-                data_seed=data_seed,
-                components=components,
-                **kwargs,
-            )
-        )
+        likelihoods.append(_construct_likelihood(lk, new_path))
 
     return likelihoods
+
+
+def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
+    try:
+        likelihood = lk.pop("class")
+    except KeyError:
+        raise KeyError("Every likelihood requires a key:val pair of class: class_name")
+
+    try:
+        cls = Likelihood._plugins[likelihood]
+    except KeyError:
+        raise ImportError(
+            f"The likelihood '{lk['name']}' is not importable. Ensure you "
+            "have set the correct import_paths and external_modules"
+        )
+
+    params = _construct_params(lk, config_path)
+    derived = _construct_derived(lk)
+    fiducial = _construct_fiducial(lk)
+    components = _construct_components(lk, config_path)
+    data_seed = lk.get("data_seed")
+
+    return cls(
+        name=lk.pop("name"),
+        params=params,
+        derived=derived,
+        fiducial=fiducial,
+        data_seed=data_seed,
+        components=components,
+        **lk,
+    )
 
 
 def _import_plugins(config):
@@ -190,9 +199,8 @@ def _load_str_or_file(stream):
     stream_probably_yamlcode = False
 
     try:
-        st = open(stream)
-        stream = st.read()
-        st.close()
+        with open(stream) as st:
+            stream = st.read()
         file_not_found = False
     except FileNotFoundError:
         file_not_found = True
@@ -200,7 +208,7 @@ def _load_str_or_file(stream):
         stream_probably_yamlcode = True
         file_not_found = False
     try:
-        return yaml.load(stream)
+        return yaml.load(stream, Loader=yaml.FullLoader)
     except Exception as e:
         if file_not_found:
             msg = f"""
@@ -235,7 +243,9 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
     # Load outer components
     name = config.get("name", name)
 
-    likelihoods = _construct_likelihoods(config, ignore_data=ignore_data)
+    likelihoods = _construct_likelihoods(
+        config, Path(getattr(stream, "name", stream)), ignore_data=ignore_data
+    )
 
     if len(likelihoods) > 1:
         # Need to build a container

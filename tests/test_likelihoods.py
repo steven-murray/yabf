@@ -31,7 +31,7 @@ def test_likelihood_properties(inactive_lk, global_lk, sub_lk):
     assert not lk.in_active_mode
     assert "y" in lk.base_parameter_dct
     assert len(lk.child_base_parameters) == len(lk.child_base_parameter_dct) == 2
-    assert len(lk.active_params_dct) == len(lk.active_params) == 0
+    assert len(lk.active_params) == 0
     assert lk.total_active_params == 0
     assert lk.fiducial_params["y"] == 0
     assert lk.logprior() == 0

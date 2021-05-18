@@ -175,14 +175,14 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     @_data_seed.default
     def _data_seed_default(self):
-        if self.using_mock_data:
-            if mpi.more_than_one_process:
-                raise TypeError(
-                    "if using MPI and auto-generated mock data, data_seed must be set"
-                )
-            return np.random.randint(0, 2 ** 32 - 1)
-        else:
+        if not self.using_mock_data:
             return None
+
+        if mpi.more_than_one_process:
+            raise TypeError(
+                "if using MPI and auto-generated mock data, data_seed must be set"
+            )
+        return np.random.randint(0, 2 ** 32 - 1)
 
     @cached_property
     def _subcomponents(self):
@@ -450,7 +450,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
     @cached_property
     def name(self):
         """The name of the likelihood."""
-        return self._name or "_".join([lk.name for lk in self.likelihoods])
+        return self._name or "_".join(lk.name for lk in self.likelihoods)
 
     def get_ctx(self, params=None):
         """Generate the context by running all components in all likelihoods."""
@@ -486,15 +486,14 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         if ctx is None:
             ctx = self.get_ctx(params)
 
-        out = {}
-        for lk in self.likelihoods:
-            out[lk.name] = lk.reduce_model(
+        return {
+            lk.name: lk.reduce_model(
                 ctx[lk.name],
                 ignore_components=[cmp.name for cmp in lk.components],
                 params=params[lk.name],
             )
-
-        return out
+            for lk in self.likelihoods
+        }
 
     def get_logls(self, model=None, ctx=None, params=None):
         params = self._fill_params(params)
@@ -502,11 +501,10 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         if model is None:
             model = self.reduce_model(ctx, params)
 
-        out = {}
-        for lk in self.likelihoods:
-            out[lk.name] = lk.lnl(model[lk.name], **params[lk.name])
-
-        return out
+        return {
+            lk.name: lk.lnl(model[lk.name], **params[lk.name])
+            for lk in self.likelihoods
+        }
 
     def logl(self, model=None, ctx=None, params=None):
         params = self._fill_params(params)
@@ -515,10 +513,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     def logprior(self, params=None):
         params = self._fill_params(params)
-        prior = 0
-        for lk in self.likelihoods:
-            prior += lk.logprior(params[lk.name])
-        return prior
+        return sum(lk.logprior(params[lk.name]) for lk in self.likelihoods)
 
     def logp(self, model=None, ctx=None, params=None):
         logger.info(f"Params: {params}")
@@ -560,13 +555,10 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         if model is None:
             model = self.reduce_model(ctx, params)
 
-        mock = {}
-        for lk in self.likelihoods:
-            mock[lk.name] = lk.mock(
-                model=model[lk.name], ctx=ctx[lk.name], params=params
-            )
-
-        return mock
+        return {
+            lk.name: lk.mock(model=model[lk.name], ctx=ctx[lk.name], params=params)
+            for lk in self.likelihoods
+        }
 
     def __call__(self, params=None, ctx=None):
 

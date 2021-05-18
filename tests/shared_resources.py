@@ -1,4 +1,4 @@
-from yabf import Component, Likelihood, Parameter
+from yabf import Component, Likelihood, Parameter, ParameterVector
 
 
 class SimpleComponent(Component):
@@ -15,6 +15,18 @@ class SimpleLikelihood(Likelihood):
     def _reduce(self, ctx, **params):
         print("x2: {}, y: {}", ctx["x2"], params["y"])
         return ctx["x2"] * params["y"]
+
+    def lnl(self, model, **params):
+        return -model
+
+
+class ParameterVecLikelihood(Likelihood):
+    base_parameters = ParameterVector(
+        "x", fiducial=0, length=3, min=-10, max=10
+    ).get_params()
+
+    def _reduce(self, ctx, **params):
+        return sum(params[f"x_{i}"] for i in range(3))
 
     def lnl(self, model, **params):
         return -model
