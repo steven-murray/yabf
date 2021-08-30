@@ -4,19 +4,22 @@ yabf
 
 
 .. image:: https://img.shields.io/pypi/v/yabf.svg
-        :target: https://pypi.python.org/pypi/yabf
+    :target: https://pypi.python.org/pypi/yabf
 
 .. image:: https://img.shields.io/travis/steven-murray/yabf.svg
-        :target: https://travis-ci.org/steven-murray/yabf
+    :target: https://travis-ci.org/steven-murray/yabf
 
 .. image:: https://readthedocs.org/projects/yabf/badge/?version=latest
-        :target: https://yabf.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
+    :target: https://yabf.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://results.pre-commit.ci/badge/github/steven-murray/yabf/dev.svg
+    :target: https://results.pre-commit.ci/latest/github/steven-murray/yabf/dev
+    :alt: pre-commit.ci status
 
 
 
-
-Yet Another Bayesian Framework
+**Yet Another Bayesian Framework**
 
 
 * Free software: MIT license

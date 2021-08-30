@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Top-level package for yabf."""
 try:
     from importlib.metadata import PackageNotFoundError, version

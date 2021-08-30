@@ -85,9 +85,9 @@ def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
     if not cmp.exists():
         cmp = pth / cmp
     if not cmp.exists():
-        raise IOError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
+        raise OSError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
 
-    with open(cmp, "r") as fl:
+    with open(cmp) as fl:
         out = yaml.load(fl)
 
     return out, cmp
