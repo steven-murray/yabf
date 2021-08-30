@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Console script for yabf."""
 
 import click
@@ -147,7 +145,7 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         console.print(Rule("Correlation Lengths"))
         for i, p in enumerate(mcsamples.getParamNames().names):
             corrlength = mcsamples.getCorrelationLength(i, weight_units=False)
-            console.print("{}:\t{:1.3e}".format(p.name, corrlength))
+            console.print(f"{p.name}:\t{corrlength:1.3e}")
 
         console.print()
         console.print("Mean (+- std) Posterior Values:")
@@ -155,9 +153,7 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         std = mcsamples.getVars()
 
         for m, s, p in zip(mean, std, mcsamples.getParamNames().names):
-            console.print(
-                "{p}:\t{mean:1.3e} +- {std:1.3e}".format(p=p.name, mean=m, std=s)
-            )
+            console.print(f"{p.name}:\t{m:1.3e} +- {s:1.3e}")
 
         if plot and HAVE_MPL:
             g = plots.getSubplotPlotter()

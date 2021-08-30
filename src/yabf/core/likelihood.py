@@ -166,7 +166,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         for cmp in val:
             assert isinstance(
                 cmp, Component
-            ), "component {} is not a valid Component".format(cmp.name)
+            ), f"component {cmp.name} is not a valid Component"
 
     @cached_property
     def using_mock_data(self):
@@ -334,7 +334,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             elif callable(d):
                 dquants.append(d(model, ctx, **params))
             else:
-                raise ValueError("{} is not a valid entry for derived".format(d))
+                raise ValueError(f"{d} is not a valid entry for derived")
 
         for cmp in self._subcomponents:
             dquants += cmp.derived_quantities(ctx, params[cmp.name])
