@@ -8,7 +8,7 @@ from attr import converters as cnv
 from attr import validators as vld
 from cached_property import cached_property
 from collections import OrderedDict
-from typing import Tuple, Union
+from typing import Callable, Sequence, Tuple, Union
 
 
 def tuplify(x):
@@ -313,7 +313,7 @@ class ParamVec:
     _max = attr.ib(np.inf, validator=_tuple_or_float, kw_only=True)
     latex = attr.ib(validator=vld.instance_of(str), kw_only=True)
 
-    ref = attr.ib(None, kw_only=True)
+    ref: Sequence[Callable] | Callable | None = attr.ib(None, kw_only=True)
     prior = attr.ib(None, kw_only=True)
 
     def _tuplify(self, val):
@@ -347,7 +347,7 @@ class ParamVec:
                 min=self.min[i],
                 max=self.max[i],
                 latex=self.latex % i,
-                ref=self.ref,
+                ref=self.ref if not hasattr(self.ref, "__len__") else self.ref[i],
                 prior=self.prior,
             )
             for i in range(self.length)
