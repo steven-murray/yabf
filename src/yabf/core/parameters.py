@@ -104,22 +104,22 @@ class ParameterVector:
             return tuple(float(v) for v in val)
 
     @property
-    def fiducial(self) -> Tuple[float]:
+    def fiducial(self) -> tuple[float]:
         return self._tuplify(self._fiducial)
 
     @property
-    def min(self) -> Tuple[float]:
+    def min(self) -> tuple[float]:
         return self._tuplify(self._min)
 
     @property
-    def max(self) -> Tuple[float]:
+    def max(self) -> tuple[float]:
         return self._tuplify(self._max)
 
     @latex.default
     def _ltx_default(self):
         return texify(self.name) + "_%s"
 
-    def get_params(self) -> Tuple[Parameter]:
+    def get_params(self) -> tuple[Parameter]:
         """Return all individual parameters from this vector."""
         return tuple(
             Parameter(
@@ -323,22 +323,22 @@ class ParamVec:
             return tuple(float(v) if v is not None else None for v in val)
 
     @property
-    def fiducial(self) -> Tuple[float]:
+    def fiducial(self) -> tuple[float]:
         return self._tuplify(self._fiducial)
 
     @property
-    def min(self) -> Tuple[float]:
+    def min(self) -> tuple[float]:
         return self._tuplify(self._min)
 
     @property
-    def max(self) -> Tuple[float]:
+    def max(self) -> tuple[float]:
         return self._tuplify(self._max)
 
     @latex.default
     def _ltx_default(self):
         return texify(self.name) + "_%s" if "%s" not in self.name else texify(self.name)
 
-    def get_params(self) -> Tuple[Param]:
+    def get_params(self) -> tuple[Param]:
         """Return a tuple of active Params for this vector."""
         return tuple(
             Param(
@@ -368,7 +368,7 @@ class Params:
         """Save the parameters in ordered dictionary form."""
         self._prm_dict = OrderedDict((p.name, p) for p in self._param_list)
 
-    def __getitem__(self, item: Union[str, int]):
+    def __getitem__(self, item: str | int):
         """Make the params like a dictionary AND a list.
 
         Parameters
@@ -444,7 +444,7 @@ class Params:
         """The number of parameters."""
         return len(self._param_list)
 
-    def __contains__(self, key: Union[str, Param]) -> bool:
+    def __contains__(self, key: str | Param) -> bool:
         """Whether the given parameter exists in this group.
 
         Parameters
@@ -464,7 +464,7 @@ class Params:
             return True
         return False
 
-    def __add__(self, x: Union[Tuple[Param], Params]) -> Params:
+    def __add__(self, x: tuple[Param] | Params) -> Params:
         """Magic method for adding two :class:`Param` instances.
 
         Parameters
