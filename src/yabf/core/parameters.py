@@ -336,7 +336,7 @@ class ParamVec:
 
     @latex.default
     def _ltx_default(self):
-        return texify(self.name) + "_%s" if "%s" not in self.name else texify(self.name)
+        return self.name
 
     def get_params(self) -> tuple[Param]:
         """Return a tuple of active Params for this vector."""
@@ -346,7 +346,7 @@ class ParamVec:
                 fiducial=self.fiducial[i],
                 min=self.min[i],
                 max=self.max[i],
-                latex=self.latex % i,
+                latex=self.latex % i if (self.latex != self.name) else attr.NOTHING,
                 ref=self.ref if not hasattr(self.ref, "__len__") else self.ref[i],
                 prior=self.prior,
             )
