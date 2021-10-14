@@ -1,11 +1,14 @@
 """Module defining the API for Samplers."""
+from __future__ import annotations
 
 import attr
+import logging
 import numpy as np
 import yaml
 from attr.validators import instance_of
 from cached_property import cached_property
 from pathlib import Path
+from scipy import optimize as opt
 from scipy.optimize import curve_fit as _curve_fit
 from scipy.optimize import minimize
 
@@ -14,6 +17,8 @@ from yabf.core.likelihood import _LikelihoodInterface
 from . import mpi
 from .likelihood import Likelihood
 from .plugin import plugin_mount_factory
+
+logger = logging.getLogger(__name__)
 
 
 @attr.s
@@ -109,11 +114,22 @@ class Sampler(metaclass=plugin_mount_factory()):
         pass
 
 
-def run_map(likelihood, x0=None, bounds=None, **kwargs):
+def run_map(
+    likelihood,
+    x0=None,
+    bounds=None,
+    basinhopping_kw: dict | None = None,
+    dual_annealing_kw: dict | None = None,
+    **kwargs,
+):
     """Run a maximum a-posteriori fit."""
 
     def objfunc(p):
-        return -likelihood.logp(params=p)
+        logging.debug(f"Params: {p}")
+        out = -likelihood.logp(params=p)
+        if np.isnan(out) or np.isinf(out):
+            logging.error(f"For params {p}, likelihood is {out}")
+        return out
 
     if x0 is None:
         x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
@@ -132,7 +148,16 @@ def run_map(likelihood, x0=None, bounds=None, **kwargs):
     elif not bounds:
         bounds = None
 
-    res = minimize(objfunc, x0, bounds=bounds, **kwargs)
+    if basinhopping_kw is not None:
+        kwargs.update(bounds=bounds)
+        res = opt.basinhopping(objfunc, x0, minimizer_kwargs=kwargs, **basinhopping_kw)
+    elif dual_annealing_kw is not None:
+        res = opt.dual_annealing(
+            objfunc, bounds, local_search_options=kwargs, **dual_annealing_kw
+        )
+    else:
+        res = minimize(objfunc, x0, bounds=bounds, **kwargs)
+
     return res
 
 
