@@ -8,7 +8,7 @@ from abc import ABC
 from attr import validators
 from cached_property import cached_property
 from copy import deepcopy
-from typing import Dict, Sequence
+from typing import Any, Dict, Sequence
 
 from . import mpi, utils
 from .component import Component, ParameterComponent, _ComponentTree
@@ -145,11 +145,25 @@ class _LikelihoodInterface(ABC):
         """
         pass
 
+    @cached_property
+    def child_provides(self) -> set[str]:
+        """All the provided quantities from this and child components."""
+        return set(
+            sum((list(cmp.child_provides) for cmp in self._subcomponents), start=[])
+        )
+
+
+def tuplify(x: Any):
+    if hasattr(x, "__len__"):
+        return tuple(x)
+    else:
+        return (x,)
+
 
 @attr.s(frozen=True, kw_only=True)
 class Likelihood(ParameterComponent, _LikelihoodInterface):
     _data = attr.ib(default=None)
-    components = attr.ib(factory=tuple, converter=tuple)
+    components = attr.ib(factory=tuple, converter=tuplify)
     _data_seed = attr.ib(validator=validators.optional(validators.instance_of(int)))
     _store_data = attr.ib(False, converter=bool)
 
@@ -239,6 +253,10 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         else:
             assert isinstance(ctx, collections.abc.Mapping)
             ctx = deepcopy(ctx)
+
+        if all(k in ctx for k in self.child_provides):
+            # We have all the keys in ctx already, don't update it.
+            return ctx
 
         if ignore_components is None:
             ignore_components = [cmp.name for cmp, _ in self.common_components]
@@ -361,6 +379,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         likelihood.
         """
         params = self._fill_params(params)
+
         ctx = self.get_ctx(ctx=ctx, ignore_components=ignore_components, params=params)
 
         top_level_params = {p: v for p, v in params.items() if not isinstance(v, dict)}

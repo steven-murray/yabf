@@ -240,12 +240,12 @@ class Param:
             return -np.inf
 
         if self.prior is None:
-            return 0
-        else:
-            try:
-                return self.prior.logpdf(val)
-            except AttributeError:
-                return self.prior(val)
+            return np.log(self.max - self.min)
+
+        try:
+            return self.prior.logpdf(val)
+        except AttributeError:
+            return self.prior(val)
 
     def clone(self, **kwargs):
         return attr.evolve(self, **kwargs)

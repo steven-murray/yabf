@@ -76,7 +76,11 @@ class _ComponentTree(ABC):
     def _subcomponent_names(self) -> Tuple[str]:
         return tuple(c.name for c in self._subcomponents)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str):
+        if not isinstance(item, str):
+            raise KeyError(
+                f"getting items from a Component requires string items, got {item}"
+            )
         return self._loc_to_component(item)
 
     @property
@@ -116,7 +120,12 @@ class _ComponentTree(ABC):
         if loc == "":
             return self
 
-        locs = loc.split(".")
+        try:
+            locs = loc.split(".")
+        except AttributeError:
+            raise AttributeError(
+                f"Passed a loc that is not a string: {loc}, type={type(loc)}"
+            )
 
         scs = {cmp.name: cmp for cmp in self._subcomponents}
 
@@ -635,6 +644,15 @@ class Component(ParameterComponent):
     @cached_property
     def _subcomponents(self):
         return self.components
+
+    @cached_property
+    def child_provides(self) -> set[str]:
+        """All the provided quantities from this and child components."""
+        return set(
+            sum(
+                (cmp.child_provides for cmp in self._subcomponents), start=self.provides
+            )
+        )
 
     def calculate(self, ctx=None, **params):
         """Perform the main calculation of this component.
