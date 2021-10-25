@@ -1,5 +1,7 @@
 import pytest
 
+import numpy as np
+
 from yabf import Component, Likelihood, LikelihoodContainer, Param, Parameter
 
 from .shared_resources import SimpleComponent, SimpleLikelihood
@@ -94,6 +96,9 @@ def test_two_lk_sharing_a_param():
         )
     )
 
-    print(lk.child_active_params)
+    for p in lk.child_active_params:
+        print(p.name, p.prior.support())
     assert lk.total_active_params == 6
-    assert lk.logl() == lk.logp() == -58
+    assert lk.logl() == -58
+    assert lk.logprior() == 5 * np.log(1 / 20) + np.log(1 / 200)
+    assert lk.logp() == -58 + lk.logprior()

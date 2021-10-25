@@ -4,11 +4,15 @@ from __future__ import annotations
 import attr
 import numpy as np
 import yaml
+from attr import NOTHING
 from attr import converters as cnv
 from attr import validators as vld
 from cached_property import cached_property
 from collections import OrderedDict
-from typing import Callable, Sequence, Tuple, Union
+from scipy import stats
+from typing import Callable, List, Sequence, Tuple, Union
+
+from .typing import numeric
 
 
 def tuplify(x):
@@ -37,7 +41,7 @@ def positive(inst, att, val):
 @attr.s(frozen=True)
 class Parameter:
     """
-    A fiducial parameter of a model.
+    A potential parameter of a model.
 
     Used to *define* the model and its defaults.
     A Parameter of a model does not mean it *will* be
@@ -138,29 +142,23 @@ class Param:
     """Specification of a parameter that is to be constrained."""
 
     name = attr.ib()
+    _min: numeric = attr.ib(-np.inf)
+    _max: numeric = attr.ib(np.inf)
+
+    prior = attr.ib(
+        kw_only=True,
+        validator=vld.optional(vld.instance_of(stats.distributions.rv_frozen)),
+    )
+
     fiducial = attr.ib(
         None,
         type=float,
         converter=cnv.optional(float),
         validator=vld.optional(vld.instance_of(float)),
-    )
-    min = attr.ib(
-        -np.inf,
-        converter=float,
-        type=float,
-        validator=vld.instance_of(float),
-        kw_only=True,
-    )
-    max = attr.ib(
-        np.inf,
-        type=float,
-        converter=float,
-        validator=vld.instance_of(float),
         kw_only=True,
     )
     latex = attr.ib(kw_only=True)
-    ref = attr.ib(None, kw_only=True)
-    prior = attr.ib(None, kw_only=True)
+    ref = attr.ib(kw_only=True)
     determines = attr.ib(
         converter=tuplify,
         kw_only=True,
@@ -171,6 +169,17 @@ class Param:
     @latex.default
     def _ltx_default(self):
         return texify(self.name)
+
+    @ref.default
+    def _ref_default(self):
+        return self.prior
+
+    @prior.default
+    def _prior_default(self) -> stats.distributions.rv_frozen | None:
+        if np.isinf(self._min) or np.isinf(self._max):
+            return None
+
+        return stats.uniform(self._min, self._max - self._min)
 
     @determines.default
     def _determines_default(self):
@@ -185,6 +194,26 @@ class Param:
         for val in value:
             if val is not None and not callable(val):
                 raise TypeError("transforms must be a list of callables")
+
+    @property
+    def min(self) -> float:
+        """The minimum boundary of the prior, helpful for constraints."""
+        if self.prior is None:
+            return self._min
+        elif isinstance(self.prior, type(stats.uniform(0, 1))):
+            return self.prior.support()[0]
+        else:
+            return -np.inf
+
+    @property
+    def max(self) -> float:
+        """The maximum boundary of the prior, helpful for constraints."""
+        if self.prior is None:
+            return self._max
+        elif isinstance(self.prior, type(stats.uniform(0, 1))):
+            return self.prior.support()[1]
+        else:
+            return np.inf
 
     @cached_property
     def is_alias(self):
@@ -203,32 +232,19 @@ class Param:
 
     def generate_ref(self, n=1):
         if self.ref is None:
-            # Use prior
-            if self.prior is None:
-                if np.isinf(self.min) or np.isinf(self.max):
-                    raise ValueError(
-                        "Cannot generate reference values for active "
-                        f"parameter with infinite bounds: {self.name}"
-                    )
+            raise ValueError("Must specify a valid function for ref to generate refs.")
 
-                ref = np.random.uniform(self.min, self.max, size=n)
-            else:
-                try:
-                    ref = self.prior.rvs(size=n)
-                except AttributeError:
-                    raise NotImplementedError("callable priors not yet implemented")
-        else:
+        try:
+            ref = self.ref.rvs(size=n)
+        except AttributeError:
             try:
-                ref = self.ref.rvs(size=n)
-            except AttributeError:
-                try:
-                    ref = self.ref(size=n)
-                except TypeError:
-                    raise TypeError(
-                        f"parameter '{self.name}' does not have a valid value for ref"
-                    )
+                ref = self.ref(size=n)
+            except TypeError:
+                raise TypeError(
+                    f"parameter '{self.name}' does not have a valid value for ref"
+                )
 
-        if not np.all(np.logical_and(self.min <= ref, ref <= self.max)):
+        if np.any(self.prior.pdf(ref) == 0):
             raise ValueError(
                 f"param {self.name} produced a reference value outside its domain."
             )
@@ -236,21 +252,18 @@ class Param:
         return ref
 
     def logprior(self, val):
-        if not (self.min <= val <= self.max):
-            return -np.inf
-
         if self.prior is None:
-            return np.log(self.max - self.min)
+            if self._min > val or self._max < val:
+                return -np.inf
+            else:
+                return 0
 
-        try:
-            return self.prior.logpdf(val)
-        except AttributeError:
-            return self.prior(val)
+        return self.prior.logpdf(val)
 
     def clone(self, **kwargs):
         return attr.evolve(self, **kwargs)
 
-    def new(self, p: Parameter):
+    def new(self, p: Parameter) -> Param:
         """Create a new :class:`Param`.
 
         Any missing info from this instance filled in by the given instance.
@@ -265,14 +278,14 @@ class Param:
 
         return Param(
             name=self.name,
+            min=max(self._min, min(default_range)),
+            max=min(self._max, max(default_range)),
             fiducial=self.fiducial if self.fiducial is not None else p.fiducial,
-            min=max(self.min, min(default_range)),
-            max=min(self.max, max(default_range)),
             latex=self.latex
             if (self.latex != self.name or self.name != p.name)
             else p.latex,
-            ref=self.ref,
-            prior=self.prior,
+            ref=self.ref or attr.NOTHING,
+            prior=self.prior or attr.NOTHING,
             determines=self.determines,
             transforms=self.transforms,
         )
@@ -283,8 +296,6 @@ class Param:
 
         if self.transforms == (None,):
             del out["transforms"]
-        if self.prior is None:
-            del out["prior"]
         if self.ref is None:
             del out["ref"]
         if self.determines == (self.name,):
@@ -304,17 +315,38 @@ class Param:
         return out
 
 
+def iterable_or_scalar(tp):
+    def validator(self, att, val):
+        if hasattr(val, "__len__"):
+            assert all(isinstance(v, tp) for v in val)
+        else:
+            assert isinstance(val, tp), f"required '{tp}', got '{type(val)}'."
+
+    return validator
+
+
 @attr.s(frozen=True)
 class ParamVec:
     name = attr.ib(validator=vld.instance_of(str))
-    length = attr.ib(validator=[vld.instance_of(int), positive])
-    _fiducial = attr.ib(None, validator=_tuple_or_float)
-    _min = attr.ib(-np.inf, validator=_tuple_or_float, kw_only=True)
-    _max = attr.ib(np.inf, validator=_tuple_or_float, kw_only=True)
+    min: Sequence[numeric] | numeric = attr.ib(
+        -np.inf, validator=iterable_or_scalar((float, int))
+    )
+    max: Sequence[numeric] | numeric = attr.ib(
+        np.inf, validator=iterable_or_scalar((float, int))
+    )
+    prior = attr.ib(
+        None,
+        kw_only=True,
+        validator=vld.optional(iterable_or_scalar(stats.distributions.rv_frozen)),
+    )
+    fiducial = attr.ib(None, validator=vld.optional(iterable_or_scalar((float, int))))
     latex = attr.ib(validator=vld.instance_of(str), kw_only=True)
-
-    ref: Sequence[Callable] | Callable | None = attr.ib(None, kw_only=True)
-    prior = attr.ib(None, kw_only=True)
+    ref: Sequence[Callable] | Callable | None = attr.ib(
+        None,
+        kw_only=True,
+        validator=vld.optional(iterable_or_scalar(stats.distributions.rv_frozen)),
+    )
+    length: int = attr.ib(validator=vld.instance_of(int))
 
     def _tuplify(self, val):
         if not hasattr(val, "__len__"):
@@ -322,33 +354,44 @@ class ParamVec:
         else:
             return tuple(float(v) if v is not None else None for v in val)
 
-    @property
-    def fiducial(self) -> tuple[float]:
-        return self._tuplify(self._fiducial)
-
-    @property
-    def min(self) -> tuple[float]:
-        return self._tuplify(self._min)
-
-    @property
-    def max(self) -> tuple[float]:
-        return self._tuplify(self._max)
-
     @latex.default
     def _ltx_default(self):
         return self.name
 
+    @length.default
+    def _length_default(self):
+        for param in ["min", "max", "prior", "fiducial", "ref"]:
+            if hasattr(getattr(self, param), "__len__"):
+                return len(getattr(self, param))
+
+        raise ValueError("You must provide length if none of the inputs are sequences.")
+
+    def __attrs_post_init__(self):
+        """Perform post-init validation."""
+        # Ensure all the inputs are the same length, if they are sequences
+        for param in ["min", "max", "prior", "fiducial", "ref"]:
+            p = getattr(self, param)
+            if hasattr(p, "__len__") and len(p) != self.length:
+                raise ValueError(
+                    f"ParamVec '{self.name}' has incompatible length for '{param}'"
+                )
+
     def get_params(self) -> tuple[Param]:
         """Return a tuple of active Params for this vector."""
+
+        def get(name, i):
+            p = getattr(self, name)
+            return p[i] if hasattr(p, "__len__") else p
+
         return tuple(
             Param(
                 name=self.name % i if "%s" in self.name else f"{self.name}_{i}",
-                fiducial=self.fiducial[i],
-                min=self.min[i],
-                max=self.max[i],
+                fiducial=get("fiducial", i),
+                min=get("min", i),
+                max=get("max", i),
+                ref=get("ref", i),
+                prior=get("prior", i) or attr.NOTHING,
                 latex=self.latex % i if (self.latex != self.name) else attr.NOTHING,
-                ref=self.ref if not hasattr(self.ref, "__len__") else self.ref[i],
-                prior=self.prior,
             )
             for i in range(self.length)
         )
@@ -458,11 +501,7 @@ class Params:
         bool
             True if the parameter is in the instance, False otherwise.
         """
-        if isinstance(key, str) and key in self._prm_dict:
-            return True
-        elif isinstance(key, Param) and key in self._prm_list:
-            return True
-        return False
+        return isinstance(key, (str, Param)) and key in self._prm_dict
 
     def __add__(self, x: tuple[Param] | Params) -> Params:
         """Magic method for adding two :class:`Param` instances.

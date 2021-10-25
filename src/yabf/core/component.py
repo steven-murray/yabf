@@ -159,7 +159,7 @@ class _ComponentTree(ABC):
             )
 
     def get_determination_graph(self):
-        p = getattr(self, "active_params", ())
+        p = self.active_params if hasattr(self, "active_params") else ()
 
         # Create tuple of active parameters that point to the right base param location
         # from _this_ component.
@@ -219,10 +219,6 @@ class _ComponentTree(ABC):
                 )
 
         return Params(tuple(out))
-
-    # @cached_property
-    # def child_active_param_dct(self):
-    #     return OrderedDict([(p.name, p) for p in self.child_active_params])
 
     @cached_property
     def total_active_params(self):
@@ -374,12 +370,12 @@ class _ComponentTree(ABC):
         """
         if params is None:
             params = self.child_active_params
-        else:
-            if any(p not in self.child_active_params for p in params):
-                raise ValueError(
-                    "Only currently active parameters may be specified in params"
-                )
+        elif any(p not in self.child_active_params for p in params):
+            raise ValueError(
+                "Only currently active parameters may be specified in params"
+            )
 
+        else:
             params = [self.child_active_params[name] for name in params]
 
         refs = []
@@ -557,6 +553,7 @@ class ParameterComponent(_ComponentTree):
         Note that this is just the parameters themselves.
         """
         out = []
+
         for v in self.params:
             if len(v.determines) == 1:
                 out.append(v.new(self.base_parameter_dct[v.determines[0]]))
@@ -564,14 +561,6 @@ class ParameterComponent(_ComponentTree):
                 out.append(v)
 
         return Params(tuple(out))
-
-    # @cached_property
-    # def active_params_dct(self) -> OrderedDict:
-    #     """Actively constrained parameters in this component.
-
-    #     Keys are string names, and values are the :class:`~Param` objects.
-    #     """
-    #     return OrderedDict([(p.name, p) for p in self.active_params])
 
     @cached_property
     def _base_to_param_mapping(self) -> dict:

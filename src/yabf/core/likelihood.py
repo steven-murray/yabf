@@ -406,7 +406,9 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             model=model, ctx=ctx, ignore_components=ignore_components, params=params
         )
 
-    def __call__(self, params=None, ctx=None, ignore_components=None):
+    def __call__(
+        self, params=None, ctx=None, ignore_components=None, with_prior: bool = True
+    ):
         if params is None:
             params = {}
         transformed_params = self._fill_params(params)
@@ -421,10 +423,9 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             ctx, ignore_components=ignore, params=transformed_params
         )
 
+        llfunc = self.logp if with_prior else self.logl
         return (
-            self.logp(
-                model, ignore_components=ignore, params=params
-            ),  # not transformed!
+            llfunc(model, ignore_components=ignore, params=params),  # not transformed!
             self.derived_quantities(
                 model, ctx, ignore_components=ignore, params=transformed_params
             ),
@@ -532,7 +533,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     def logprior(self, params=None):
         params = self._fill_params(params)
-        return sum(lk.logprior(params[lk.name]) for lk in self.likelihoods)
+        return Likelihood.logprior(self, params=params)
 
     def logp(self, model=None, ctx=None, params=None):
         logger.info(f"Params: {params}")

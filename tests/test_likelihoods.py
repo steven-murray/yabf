@@ -1,5 +1,7 @@
 import pytest
 
+import numpy as np
+
 from yabf import Param
 
 from .shared_resources import SimpleComponent, SimpleLikelihood
@@ -10,7 +12,7 @@ def inactive_lk():
     return SimpleLikelihood(components=[SimpleComponent(name="cmp")])
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def global_lk():
     return SimpleLikelihood(
         components=[SimpleComponent(name="cmp", params=(Param("x", fiducial=1.5),))]
@@ -38,13 +40,18 @@ def test_likelihood_properties(inactive_lk, global_lk, sub_lk):
 
     assert global_lk.in_active_mode
     assert global_lk.total_active_params == 1
-    assert global_lk.logprior() == 0
+    print(global_lk.child_active_params["x"])
+    print(
+        global_lk.child_active_params["x"].prior.a,
+        global_lk.child_active_params["x"].prior.b,
+    )
+    assert global_lk.logprior() == np.log(1 / 20)
     assert len(global_lk.fiducial_params) == 2  # one param and one component
 
     assert sub_lk.in_active_mode
     assert sub_lk.total_active_params == 2
     print(sub_lk.fiducial_params)
-    assert sub_lk.logprior() == 0
+    assert sub_lk.logprior() == np.log(1 / 200) + np.log(1 / 20)
     assert len(sub_lk.fiducial_params) == 2  # fidicual only cares about top-level
     assert len(sub_lk.fiducial_params["cmp"]) == 1
 
@@ -53,7 +60,7 @@ def test_generate_refs(inactive_lk, global_lk):
     lk = inactive_lk
 
     with pytest.raises(AttributeError):
-        refs = lk.generate_refs()
+        lk.generate_refs()
 
     lk = global_lk
 
@@ -86,7 +93,7 @@ def test_parameter_list_to_dict(inactive_lk, global_lk, sub_lk):
         inactive_lk._parameter_list_to_dict([])
 
     with pytest.raises(ValueError):
-        p = global_lk._parameter_list_to_dict([])
+        global_lk._parameter_list_to_dict([])
 
     p = global_lk._parameter_list_to_dict([7])
     assert p["cmp"]["x"] == 7
