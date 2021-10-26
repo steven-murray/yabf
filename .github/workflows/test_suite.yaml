@@ -39,10 +39,7 @@ jobs:
           pip install .[dev]
       - name: Setup polychord
         run: |
-          git clone https://github.com/PolyChord/PolyChordLite
-          cd PolyChordLite
-          FC=gfortran python setup.py --no-mpi install
-          cd ..
+          pip install --no-mpi git+git://github.com/PolyChord/PolyChordLite
       - name: Run Tests
         run: |
           python -m pytest --cov-report xml:./coverage.xml
