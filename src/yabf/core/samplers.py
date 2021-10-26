@@ -54,7 +54,7 @@ class Sampler(metaclass=plugin_mount_factory()):
     @cached_property
     def output_dir(self):
         """The directory into which the sampler will write information."""
-        if not self._output_prefix.absolute():
+        if not self._output_prefix.is_absolute():
             direc = self._output_dir / self._output_prefix.parent
         else:
             direc = self._output_prefix.parent
