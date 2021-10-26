@@ -1,4 +1,5 @@
 """Framework for likelihoods."""
+from __future__ import annotations
 
 import attr
 import collections
@@ -23,7 +24,7 @@ class _LikelihoodInterface(ABC):
         self,
         model=None,
         ctx: [None, dict] = None,
-        params: [None, Sequence, Dict] = None,
+        params: [None, Sequence, dict] = None,
     ):
         """Create a mock dataset given a set of parameters.
 
@@ -224,7 +225,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         """Check that the requirements of each sub-components are met."""
         return True
 
-    def get_ctx(self, ctx=None, ignore_components=None, params=None) -> Dict:
+    def get_ctx(self, ctx=None, ignore_components=None, params=None) -> dict:
         """Obtain a full context dictionary for given parameters.
 
         Parameters
