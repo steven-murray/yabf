@@ -39,7 +39,10 @@ jobs:
           pip install .[dev]
       - name: Setup polychord
         run: |
-          pip install --no-mpi git+git://github.com/PolyChord/PolyChordLite
+          git clone https://github.com/PolyChord/PolyChordLite
+          cd PolyChordLite
+          python setup.py --no-mpi install
+          cd ..
       - name: Run Tests
         run: |
           python -m pytest --cov-report xml:./coverage.xml
