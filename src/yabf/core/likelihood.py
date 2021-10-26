@@ -1,4 +1,5 @@
 """Framework for likelihoods."""
+from __future__ import annotations
 
 import attr
 import collections
@@ -8,7 +9,7 @@ from abc import ABC
 from attr import validators
 from cached_property import cached_property
 from copy import deepcopy
-from typing import Dict, Sequence
+from typing import Any, Dict, Sequence
 
 from . import mpi, utils
 from .component import Component, ParameterComponent, _ComponentTree
@@ -23,7 +24,7 @@ class _LikelihoodInterface(ABC):
         self,
         model=None,
         ctx: [None, dict] = None,
-        params: [None, Sequence, Dict] = None,
+        params: [None, Sequence, dict] = None,
     ):
         """Create a mock dataset given a set of parameters.
 
@@ -145,11 +146,25 @@ class _LikelihoodInterface(ABC):
         """
         pass
 
+    @cached_property
+    def child_provides(self) -> set[str]:
+        """All the provided quantities from this and child components."""
+        return set(
+            sum((list(cmp.child_provides) for cmp in self._subcomponents), start=[])
+        )
+
+
+def tuplify(x: Any):
+    if hasattr(x, "__len__"):
+        return tuple(x)
+    else:
+        return (x,)
+
 
 @attr.s(frozen=True, kw_only=True)
 class Likelihood(ParameterComponent, _LikelihoodInterface):
     _data = attr.ib(default=None)
-    components = attr.ib(factory=tuple, converter=tuple)
+    components = attr.ib(factory=tuple, converter=tuplify)
     _data_seed = attr.ib(validator=validators.optional(validators.instance_of(int)))
     _store_data = attr.ib(False, converter=bool)
 
@@ -210,7 +225,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         """Check that the requirements of each sub-components are met."""
         return True
 
-    def get_ctx(self, ctx=None, ignore_components=None, params=None) -> Dict:
+    def get_ctx(self, ctx=None, ignore_components=None, params=None) -> dict:
         """Obtain a full context dictionary for given parameters.
 
         Parameters
@@ -239,6 +254,10 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         else:
             assert isinstance(ctx, collections.abc.Mapping)
             ctx = deepcopy(ctx)
+
+        if all(k in ctx for k in self.child_provides):
+            # We have all the keys in ctx already, don't update it.
+            return ctx
 
         if ignore_components is None:
             ignore_components = [cmp.name for cmp, _ in self.common_components]
@@ -361,6 +380,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         likelihood.
         """
         params = self._fill_params(params)
+
         ctx = self.get_ctx(ctx=ctx, ignore_components=ignore_components, params=params)
 
         top_level_params = {p: v for p, v in params.items() if not isinstance(v, dict)}
@@ -387,7 +407,9 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             model=model, ctx=ctx, ignore_components=ignore_components, params=params
         )
 
-    def __call__(self, params=None, ctx=None, ignore_components=None):
+    def __call__(
+        self, params=None, ctx=None, ignore_components=None, with_prior: bool = True
+    ):
         if params is None:
             params = {}
         transformed_params = self._fill_params(params)
@@ -402,10 +424,9 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             ctx, ignore_components=ignore, params=transformed_params
         )
 
+        llfunc = self.logp if with_prior else self.logl
         return (
-            self.logp(
-                model, ignore_components=ignore, params=params
-            ),  # not transformed!
+            llfunc(model, ignore_components=ignore, params=params),  # not transformed!
             self.derived_quantities(
                 model, ctx, ignore_components=ignore, params=transformed_params
             ),
@@ -513,7 +534,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     def logprior(self, params=None):
         params = self._fill_params(params)
-        return sum(lk.logprior(params[lk.name]) for lk in self.likelihoods)
+        return Likelihood.logprior(self, params=params)
 
     def logp(self, model=None, ctx=None, params=None):
         logger.info(f"Params: {params}")

@@ -2,11 +2,15 @@
 History
 =======
 
-dev-version
------------
+v2.0.0 [25 Oct 2021]
+--------------------
 
-v1.0.0 [18 May 2021]
-----------------------
+Fixed
+-----
+
+* Bayesian evidence computed correctly in polychord now (with tests)
+* polychord now saves into the correct directory.
+
 
 v1.0.0 [18 May 2021]
 ----------------------

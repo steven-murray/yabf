@@ -40,31 +40,28 @@ class polychord(Sampler):
         return len(self._flat_array(self.__derived_sample))
 
     @cached_property
-    def log_prior_volume(self):
-        prior_volume = 0
-        for p in self.likelihood.child_active_params:
-            if np.isinf(p.min) or np.isinf(p.max):
-                raise ValueError("Polychord requires bounded priors")
-            prior_volume += np.log(p.max - p.min)
-        return prior_volume
-
-    @cached_property
     def prior(self):
+        if any(p is None for p in self.likelihood.child_active_params):
+            raise ValueError(
+                "All parameters must have proper priors if using polychord!"
+            )
+
         # Determine proper prior.
         def pr(hypercube):
-            ret = []
-            for p, h in zip(self.likelihood.child_active_params, hypercube):
-                ret.append(UniformPrior(p.min, p.max)(h))
-            return ret
+            return [
+                p.prior.ppf(h)  # ppf conerts [0, 1] to the distribution sample
+                for p, h in zip(self.likelihood.child_active_params, hypercube)
+            ]
 
         return pr
 
     @cached_property
     def posterior(self):
+        # Don't use the prior, because it's taken care of directly by polychord
         def posterior(p):
-            lnl, derived = self.likelihood(p)
+            lnl, derived = self.likelihood(p, with_prior=False)
             return (
-                max(lnl + self.log_prior_volume, 0.99 * np.nan_to_num(-np.inf)),
+                max(lnl, 0.99 * np.nan_to_num(-np.inf)),
                 np.array(self._flat_array(derived)),
             )
 

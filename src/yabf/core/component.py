@@ -1,4 +1,6 @@
 """Framework for MCMC Components."""
+from __future__ import annotations
+
 import attr
 import collections
 from abc import ABC
@@ -73,10 +75,14 @@ class _ComponentTree(ABC):
         return common
 
     @cached_property
-    def _subcomponent_names(self) -> Tuple[str]:
+    def _subcomponent_names(self) -> tuple[str]:
         return tuple(c.name for c in self._subcomponents)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str):
+        if not isinstance(item, str):
+            raise KeyError(
+                f"getting items from a Component requires string items, got {item}"
+            )
         return self._loc_to_component(item)
 
     @property
@@ -87,7 +93,7 @@ class _ComponentTree(ABC):
         )
 
     @cached_property
-    def child_base_parameters(self) -> Tuple:
+    def child_base_parameters(self) -> tuple:
         """Tuple of all parameters in this and child components."""
         this = tuple(self.base_parameters) if hasattr(self, "base_parameters") else ()
         for cmp in self._subcomponents:
@@ -116,7 +122,12 @@ class _ComponentTree(ABC):
         if loc == "":
             return self
 
-        locs = loc.split(".")
+        try:
+            locs = loc.split(".")
+        except AttributeError:
+            raise AttributeError(
+                f"Passed a loc that is not a string: {loc}, type={type(loc)}"
+            )
 
         scs = {cmp.name: cmp for cmp in self._subcomponents}
 
@@ -150,7 +161,7 @@ class _ComponentTree(ABC):
             )
 
     def get_determination_graph(self):
-        p = getattr(self, "active_params", ())
+        p = self.active_params if hasattr(self, "active_params") else ()
 
         # Create tuple of active parameters that point to the right base param location
         # from _this_ component.
@@ -211,10 +222,6 @@ class _ComponentTree(ABC):
 
         return Params(tuple(out))
 
-    # @cached_property
-    # def child_active_param_dct(self):
-    #     return OrderedDict([(p.name, p) for p in self.child_active_params])
-
     @cached_property
     def total_active_params(self):
         return len(self.child_active_params)
@@ -224,7 +231,7 @@ class _ComponentTree(ABC):
             paramname = name.rpartition(".")[-1]
             yield name, paramname
 
-    def _fiducial_params(self, transform=True) -> Dict[str, float]:
+    def _fiducial_params(self, transform=True) -> dict[str, float]:
         """Dictionary of fiducial parameters for all subcomponents."""
         dct = {}
 
@@ -252,11 +259,11 @@ class _ComponentTree(ABC):
         return dct
 
     @cached_property
-    def fiducial_params(self) -> Dict[str, float]:
+    def fiducial_params(self) -> dict[str, float]:
         return self._fiducial_params()
 
     @cached_property
-    def fiducial_params_untransformed(self) -> Dict[str, float]:
+    def fiducial_params_untransformed(self) -> dict[str, float]:
         return self._fiducial_params(transform=False)
 
     def _fill_params(self, params=None, transform=True):
@@ -365,12 +372,12 @@ class _ComponentTree(ABC):
         """
         if params is None:
             params = self.child_active_params
-        else:
-            if any(p not in self.child_active_params for p in params):
-                raise ValueError(
-                    "Only currently active parameters may be specified in params"
-                )
+        elif any(p not in self.child_active_params for p in params):
+            raise ValueError(
+                "Only currently active parameters may be specified in params"
+            )
 
+        else:
             params = [self.child_active_params[name] for name in params]
 
         refs = []
@@ -548,6 +555,7 @@ class ParameterComponent(_ComponentTree):
         Note that this is just the parameters themselves.
         """
         out = []
+
         for v in self.params:
             if len(v.determines) == 1:
                 out.append(v.new(self.base_parameter_dct[v.determines[0]]))
@@ -555,14 +563,6 @@ class ParameterComponent(_ComponentTree):
                 out.append(v)
 
         return Params(tuple(out))
-
-    # @cached_property
-    # def active_params_dct(self) -> OrderedDict:
-    #     """Actively constrained parameters in this component.
-
-    #     Keys are string names, and values are the :class:`~Param` objects.
-    #     """
-    #     return OrderedDict([(p.name, p) for p in self.active_params])
 
     @cached_property
     def _base_to_param_mapping(self) -> dict:
@@ -635,6 +635,15 @@ class Component(ParameterComponent):
     @cached_property
     def _subcomponents(self):
         return self.components
+
+    @cached_property
+    def child_provides(self) -> set[str]:
+        """All the provided quantities from this and child components."""
+        return set(
+            sum(
+                (cmp.child_provides for cmp in self._subcomponents), start=self.provides
+            )
+        )
 
     def calculate(self, ctx=None, **params):
         """Perform the main calculation of this component.
