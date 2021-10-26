@@ -1,4 +1,6 @@
 """Framework for MCMC Components."""
+from __future__ import annotations
+
 import attr
 import collections
 from abc import ABC
@@ -73,7 +75,7 @@ class _ComponentTree(ABC):
         return common
 
     @cached_property
-    def _subcomponent_names(self) -> Tuple[str]:
+    def _subcomponent_names(self) -> tuple[str]:
         return tuple(c.name for c in self._subcomponents)
 
     def __getitem__(self, item: str):
@@ -91,7 +93,7 @@ class _ComponentTree(ABC):
         )
 
     @cached_property
-    def child_base_parameters(self) -> Tuple:
+    def child_base_parameters(self) -> tuple:
         """Tuple of all parameters in this and child components."""
         this = tuple(self.base_parameters) if hasattr(self, "base_parameters") else ()
         for cmp in self._subcomponents:
@@ -229,7 +231,7 @@ class _ComponentTree(ABC):
             paramname = name.rpartition(".")[-1]
             yield name, paramname
 
-    def _fiducial_params(self, transform=True) -> Dict[str, float]:
+    def _fiducial_params(self, transform=True) -> dict[str, float]:
         """Dictionary of fiducial parameters for all subcomponents."""
         dct = {}
 
@@ -257,11 +259,11 @@ class _ComponentTree(ABC):
         return dct
 
     @cached_property
-    def fiducial_params(self) -> Dict[str, float]:
+    def fiducial_params(self) -> dict[str, float]:
         return self._fiducial_params()
 
     @cached_property
-    def fiducial_params_untransformed(self) -> Dict[str, float]:
+    def fiducial_params_untransformed(self) -> dict[str, float]:
         return self._fiducial_params(transform=False)
 
     def _fill_params(self, params=None, transform=True):
