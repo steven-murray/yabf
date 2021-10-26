@@ -35,6 +35,8 @@ jobs:
         uses: mpi4py/setup-mpi@v1
       - name: Setup Environment
         run: |
+          shopt -s expand_aliases
+          alias f77=gfortran
           pip install -U coverage
           pip install numpy
           pip install .[dev]
