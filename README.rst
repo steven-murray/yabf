@@ -6,8 +6,8 @@ yabf
 .. image:: https://img.shields.io/pypi/v/yabf.svg
     :target: https://pypi.python.org/pypi/yabf
 
-.. image:: https://img.shields.io/travis/steven-murray/yabf.svg
-    :target: https://travis-ci.org/steven-murray/yabf
+.. image:: https://codecov.io/gh/steven-murray/yabf/branch/master/graph/badge.svg?token=fuxNCeAtof
+  :target: https://codecov.io/gh/steven-murray/yabf
 
 .. image:: https://readthedocs.org/projects/yabf/badge/?version=latest
     :target: https://yabf.readthedocs.io/en/latest/?badge=latest
