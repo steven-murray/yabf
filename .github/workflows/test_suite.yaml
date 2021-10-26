@@ -35,7 +35,7 @@ jobs:
         run: |
           pip install -U coverage
           pip install numpy
-          pip install .[dev]
+          MPI=0 pip install .[dev]
       - name: Run Tests
         run: |
           python -m pytest --cov-report xml:./coverage.xml
