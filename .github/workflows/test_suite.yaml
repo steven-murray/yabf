@@ -47,8 +47,6 @@ jobs:
         run: |
           python -m pytest --cov-report xml:./coverage.xml
       - uses: codecov/codecov-action@v2
-        if: matrix.os == 'ubuntu-latest' && success()
         with:
-          files: ./coverage.xml #optional
           fail_ci_if_error: true
           verbose: true
