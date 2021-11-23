@@ -5,8 +5,7 @@ source = yabf
 
 [paths]
 source =
-    src/
-    */site-packages/
+    src/yabf
 
 [report]
 # Regexes for lines to exclude from consideration
