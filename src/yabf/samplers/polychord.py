@@ -32,7 +32,16 @@ class polychord(Sampler):
 
     @cached_property
     def derived_shapes(self):
-        return [getattr(d, "shape", 0) for d in self.__derived_sample]
+        shapes = []
+        for d in self.__derived_sample:
+            if hasattr(d, "shape"):
+                shapes.append(d.shape)
+            elif hasattr(d, "__len__"):
+                shapes.append((len(d),))
+            else:
+                shapes.append(0)
+
+        return shapes
 
     @cached_property
     def nderived(self):
@@ -79,6 +88,9 @@ class polychord(Sampler):
         """Create a list of tuples specifying derived parameter names."""
         names = []
         for name, shape in zip(self.likelihood.child_derived, self.derived_shapes):
+            if not isinstance(name, str):
+                name = name.__name__
+
             if shape == 0:
                 names.append((name, name))
             else:
