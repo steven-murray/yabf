@@ -52,7 +52,7 @@ def test_two_lk_sharing_a_param():
         ]
 
         def calculate(self, ctx, x, y, z):
-            return x ** 2 + y ** 2 + z ** 2
+            return x**2 + y**2 + z**2
 
     class ThisLikelihood(Likelihood):
         base_parameters = [Parameter("w", 0, min=-100, max=100)]
