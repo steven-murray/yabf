@@ -197,7 +197,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             raise TypeError(
                 "if using MPI and auto-generated mock data, data_seed must be set"
             )
-        return np.random.randint(0, 2 ** 32 - 1)
+        return np.random.randint(0, 2**32 - 1)
 
     @cached_property
     def _subcomponents(self):
