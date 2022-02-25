@@ -61,7 +61,7 @@ def add_loc_to_dict(dct, loc, val, raise_if_not_exist=False):
 @contextmanager
 def seed_as(seed):
     """A context manager which sets a random seed and then randomizes upon exit."""
-    post_seed = np.random.randint(0, 2 ** 32 - 1)
+    post_seed = np.random.randint(0, 2**32 - 1)
     np.random.seed(seed)
     yield None
     np.random.seed(post_seed)
