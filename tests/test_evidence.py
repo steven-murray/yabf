@@ -5,7 +5,7 @@ import pytest
 
 import attr
 import numpy as np
-from pypolychord import PolyChordOutput
+from pypolychord.output import PolyChordOutput
 from scipy import stats
 from scipy.integrate import quad, simps
 
