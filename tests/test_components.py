@@ -1,5 +1,7 @@
 import pytest
 
+import numpy as np
+
 from yabf import Component, Param
 
 from .shared_resources import SimpleComponent
@@ -46,3 +48,18 @@ def test_genref():
     refs = b.generate_refs()
     assert len(refs) == len(refs[0]) == 1
     assert -10 < refs[0][0] < 10
+
+
+def test_transform_param():
+    a = SimpleComponent(params=[Param("logx", determines=("x",), transforms=(np.exp,))])
+
+    # this can't work because the min/max for logx are by default -inf/inf
+    with pytest.raises(ValueError, match="The defined support for 'logx'"):
+        a.active_params
+
+    a = SimpleComponent(
+        params=[Param("logx", min=-1, max=1, determines=("x",), transforms=(np.exp,))]
+    )
+    assert a.active_params["logx"].min == -1
+    assert a.active_params["logx"].max == 1
+    assert list(a.active_params["logx"].transform(0))[0] == 1

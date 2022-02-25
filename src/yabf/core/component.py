@@ -555,7 +555,6 @@ class ParameterComponent(_ComponentTree):
         Note that this is just the parameters themselves.
         """
         out = []
-
         for v in self.params:
             if len(v.determines) == 1:
                 out.append(v.new(self.base_parameter_dct[v.determines[0]]))

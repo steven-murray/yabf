@@ -2,6 +2,14 @@
 History
 =======
 
+v2.0.1
+------
+
+Fixed
+-----
+
+* Params with ``transforms`` now give the right bounds.
+
 v2.0.0 [25 Oct 2021]
 --------------------
 

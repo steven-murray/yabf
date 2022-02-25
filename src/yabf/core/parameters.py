@@ -274,12 +274,25 @@ class Param:
         if len(self.determines) > 1:
             raise ValueError("Cannot create new Param if it is not just an alias")
 
-        default_range = (list(self.transform(p.min))[0], list(self.transform(p.max))[0])
+        if len(self.transforms) == 1 and self.transforms[0] is None:
+            # don't know how to do this if transforms are given
+            pmin = max(self._min, p.min)
+            pmax = min(self._max, p.max)
+        else:
+            tr = (
+                list(self.transform(self._min))[0],
+                list(self.transform(self._max))[0],
+            )
+            if not (p.min <= tr[0] <= p.max and p.min <= tr[1] <= p.max):
+                raise ValueError(
+                    f"The defined support for '{self.name}' ({self._min}-{self._max}) transforms to {min(tr)-max(tr)}, which is outside the support of its determined parameter '{p.name}', which has range {p.min}-{p.max}"
+                )
+            pmin, pmax = self._min, self._max
 
         return Param(
             name=self.name,
-            min=max(self._min, min(default_range)),
-            max=min(self._max, max(default_range)),
+            min=pmin,
+            max=pmax,
             fiducial=self.fiducial if self.fiducial is not None else p.fiducial,
             latex=self.latex
             if (self.latex != self.name or self.name != p.name)

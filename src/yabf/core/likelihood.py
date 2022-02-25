@@ -542,6 +542,12 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         logl = self.logl(model, ctx, params)  # this fills the params
         logprior = self.logprior(params)
         logger.info(f"logl: {logl}, prior: {logprior}")
+        if np.isnan(logl) or np.isinf(logl):
+            logger.warn(f"Got bad logl: {logl}, with params: {params}")
+        if np.isnan(logprior):
+            logger.warn(f"Got bad logprior: {logprior} with params: {params}")
+        if np.isinf(logprior):
+            logger.warn(f"prior out of bounds for params: {params}")
         return logl + logprior
 
     @cached_property
