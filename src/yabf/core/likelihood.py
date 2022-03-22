@@ -129,7 +129,7 @@ class _LikelihoodInterface(ABC):
         """
         return self.logprior(**params) + self.logl(model, **params)
 
-    def __call__(self, params=None, ctx=None):
+    def __call__(self, params=None, ctx=None, with_prior: bool = True):
         """Return a tuple of the log-posterior and derived quantities at given params.
 
         Parameters
@@ -143,6 +143,8 @@ class _LikelihoodInterface(ABC):
             but not all parameters must be present (non-present keys are given default
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
+        with_prior
+            Whether to add the prior to the output posterior.
         """
         pass
 
@@ -587,13 +589,15 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
             for lk in self.likelihoods
         }
 
-    def __call__(self, params=None, ctx=None):
+    def __call__(self, params=None, ctx=None, with_prior: bool = True):
 
         params = self._fill_params(params)
         if ctx is None:
             ctx = self.get_ctx(params)
         model = self.reduce_model(ctx=ctx, params=params)
+        llfunc = self.logp if with_prior else self.logl
+
         return (
-            self.logp(model=model, params=params),
+            llfunc(model=model, params=params),
             self.derived_quantities(model, ctx, params),
         )
