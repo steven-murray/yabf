@@ -102,3 +102,5 @@ def test_two_lk_sharing_a_param():
     assert lk.logl() == -58
     assert lk.logprior() == 5 * np.log(1 / 20) + np.log(1 / 200)
     assert lk.logp() == -58 + lk.logprior()
+
+    assert lk(with_prior=False) != lk(with_prior=True)
