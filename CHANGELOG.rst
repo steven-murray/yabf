@@ -2,6 +2,14 @@
 History
 =======
 
+v2.1.1
+------
+
+Fixed
+-----
+
+* Issue with using polychord and a ``LikelihoodContainer``.
+
 v2.0.1
 ------
 
