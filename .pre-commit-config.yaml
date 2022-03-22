@@ -23,7 +23,7 @@ repos:
         - flake8-comprehensions
         - flake8-print
 
-  - repo: git://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:
       - id: trailing-whitespace
