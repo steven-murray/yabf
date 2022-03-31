@@ -1,8 +1,10 @@
 """Console script for yabf."""
 
 import click
+import importlib
 import sys
 import time
+import yaml
 from getdist import plots
 from os import path
 from pathlib import Path
@@ -15,6 +17,7 @@ from yabf.core import utils
 from yabf.core.likelihood import _LikelihoodInterface
 
 from . import load_from_yaml, load_likelihood_from_yaml, load_sampler_from_yaml, mpi
+from .core import configio as io
 
 try:
     from matplotlib import pyplot as plt
@@ -22,6 +25,18 @@ try:
     HAVE_MPL = True
 except ImportError:
     HAVE_MPL = False
+
+
+def set_loader(yaml_loader):
+    """Set the YAML loader from a string."""
+    if yaml_loader:
+        if "." in yaml_loader:
+            mdl = importlib.import_module(".".join(yaml_loader.split(".")[:-1]))
+            yaml_loader = getattr(mdl, yaml_loader.split(".")[-1])
+        else:
+            yaml_loader = getattr(yaml, yaml_loader)
+
+        io.YAML_LOADER = yaml_loader
 
 
 @click.command()
@@ -50,7 +65,14 @@ except ImportError:
     default="pdf",
     type=click.Choice(["pdf", "png"], case_sensitive=False),
 )
-def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
+@click.option(
+    "-y",
+    "--yaml-loader",
+    default="",
+    type=str,
+    help="dot-path to a yaml Loader class to use in loading the likelihood from YAML",
+)
+def main(yaml_file, plot, sampler_file, write, direc, label, plot_format, yaml_loader):
     """Console script for yabf."""
     if mpi.am_single_or_primary_process:
         console = Console(width=100)
@@ -60,6 +82,8 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
             justify="center",
         )
         start = time.time()
+
+    set_loader(yaml_loader)
 
     likelihood = load_likelihood_from_yaml(yaml_file)
     output_prefix = Path(direc) / (label or likelihood.name or Path(yaml_file).stem)

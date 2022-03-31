@@ -13,6 +13,8 @@ from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
 from .parameters import Param, ParamVec
 from .samplers import Sampler
 
+YAML_LOADER = yaml.SafeLoader
+
 
 def _absfile(yml, fname):
     if path.isabs(fname):
@@ -87,8 +89,9 @@ def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
     if not cmp.exists():
         raise OSError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
 
+    assert isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader))
     with open(cmp) as fl:
-        out = yaml.load(fl)
+        out = yaml.load(fl, Loader=YAML_LOADER)
 
     return out, cmp
 
@@ -197,6 +200,7 @@ def _import_plugins(config):
 
 def _load_str_or_file(stream):
     stream_probably_yamlcode = False
+    assert isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader))
 
     try:
         with open(stream) as st:
@@ -208,7 +212,7 @@ def _load_str_or_file(stream):
         stream_probably_yamlcode = True
         file_not_found = False
     try:
-        return yaml.load(stream, Loader=yaml.FullLoader)
+        return yaml.load(stream, Loader=YAML_LOADER)
     except Exception as e:
         if file_not_found:
             msg = f"""
@@ -244,7 +248,9 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
     name = config.get("name", name)
 
     likelihoods = _construct_likelihoods(
-        config, Path(getattr(stream, "name", stream)), ignore_data=ignore_data
+        config,
+        Path(getattr(stream, "name", stream)),
+        ignore_data=ignore_data,
     )
 
     if len(likelihoods) > 1:
