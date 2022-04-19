@@ -89,7 +89,11 @@ def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
     if not cmp.exists():
         raise OSError(f"Included component/likelihood sub-YAML does not exist: {cmp}")
 
-    assert isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader))
+    if not isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader)):
+        raise TypeError(
+            f"YAML_LOADER must be SafeLoader or FullLoader instance, got {YAML_LOADER}."
+        )
+
     with open(cmp) as fl:
         out = yaml.load(fl, Loader=YAML_LOADER)
 
@@ -200,7 +204,10 @@ def _import_plugins(config):
 
 def _load_str_or_file(stream):
     stream_probably_yamlcode = False
-    assert isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader))
+    if not isinstance(YAML_LOADER, (yaml.SafeLoader, yaml.FullLoader)):
+        raise TypeError(
+            f"YAML_LOADER must be SafeLoader or FullLoader instance, got {YAML_LOADER}."
+        )
 
     try:
         with open(stream) as st:
