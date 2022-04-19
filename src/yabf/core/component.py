@@ -636,11 +636,14 @@ class Component(ParameterComponent):
         return self.components
 
     @cached_property
-    def child_provides(self) -> set[str]:
+    def child_provides(self) -> tuple[str]:
         """All the provided quantities from this and child components."""
-        return set(
-            sum(
-                (cmp.child_provides for cmp in self._subcomponents), start=self.provides
+        return tuple(
+            set(
+                sum(
+                    (cmp.child_provides for cmp in self._subcomponents),
+                    start=tuple(self.provides),
+                )
             )
         )
 

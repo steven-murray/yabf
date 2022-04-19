@@ -9,6 +9,14 @@ class SimpleComponent(Component):
         return param["x"] ** 2
 
 
+class SuperComponent(Component):
+    # requires a simple component
+    provides = ("x4",)
+
+    def calculate(self, ctx, **param):
+        return ctx["x2"] ** 2
+
+
 class SimpleLikelihood(Likelihood):
     base_parameters = [Parameter("y", 0, min=-100, max=100)]
 

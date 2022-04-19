@@ -4,11 +4,22 @@ import numpy as np
 
 from yabf import Component, Param
 
-from .shared_resources import SimpleComponent
+from .shared_resources import SimpleComponent, SimpleLikelihood, SuperComponent
 
 
 def test_component_plugin():
     assert SimpleComponent.__name__ in Component._plugins
+
+
+def test_super_component():
+    s = SuperComponent(
+        components=(SimpleComponent(params=("x",)),),
+    )
+    a = SimpleLikelihood(components=(s,))
+
+    ctx = a.get_ctx(params={"x": 3})
+    assert ctx["x2"] == 9
+    assert ctx["x4"] == 81
 
 
 def test_simple_component_properties():
