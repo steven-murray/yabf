@@ -2,6 +2,15 @@
 History
 =======
 
+v2.2.0
+------
+
+Added
+-----
+
+* Ability to set the YAML loader when loading likelihoods from YAML. This can be done
+  programmatically or via CLI by using eg. ``--yaml-loader astropy.io.misc.AstropyLoader``
+
 v2.1.1
 ------
 

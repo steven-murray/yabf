@@ -39,6 +39,7 @@ def data_loader(tag=None):
             return wrapper(node.value)
 
         yaml.add_constructor(f"!{new_tag}", yaml_fnc, Loader=yaml.FullLoader)
+        yaml.add_constructor(f"!{new_tag}", yaml_fnc, Loader=yaml.SafeLoader)
         yaml.add_constructor(f"!{new_tag}", yaml_fnc, Loader=yaml.Loader)
 
         return wrapper
