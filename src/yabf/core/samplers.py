@@ -4,6 +4,7 @@ from __future__ import annotations
 import attr
 import logging
 import numpy as np
+import time
 import yaml
 from attr.validators import instance_of
 from cached_property import cached_property
@@ -125,11 +126,14 @@ def run_map(
     """Run a maximum a-posteriori fit."""
 
     def objfunc(p):
-        logging.debug(f"Params: {p}")
+        objfunc.calls += 1
+        logger.debug(f"Params: {p}")
         out = -likelihood.logp(params=p)
         if np.isnan(out) or np.isinf(out):
-            logging.error(f"For params {p}, likelihood is {out}")
+            logger.error(f"For params {p}, likelihood is {out}")
         return out
+
+    objfunc.calls = 0
 
     if x0 is None:
         x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
@@ -148,6 +152,7 @@ def run_map(
     elif not bounds:
         bounds = None
 
+    t = time.time()
     if basinhopping_kw is not None:
         kwargs.update(bounds=bounds)
         res = opt.basinhopping(objfunc, x0, minimizer_kwargs=kwargs, **basinhopping_kw)
@@ -157,7 +162,11 @@ def run_map(
         )
     else:
         res = minimize(objfunc, x0, bounds=bounds, **kwargs)
+    t2 = time.time()
 
+    logger.info(
+        f"Took {t2 - t} seconds to minimize. Average {(t2 - t)/objfunc.calls} per likelihood eval."
+    )
     return res
 
 
