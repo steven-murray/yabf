@@ -150,6 +150,7 @@ class polychord(Sampler):
             self.nderived,
             settings=settings,
             prior=self.prior,
+            **kwargs,
         )
 
     def _samples_to_mcsamples(self, samples):
