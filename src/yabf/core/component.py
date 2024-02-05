@@ -1,4 +1,5 @@
 """Framework for MCMC Components."""
+
 from __future__ import annotations
 
 import attr
