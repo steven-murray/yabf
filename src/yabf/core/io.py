@@ -1,4 +1,5 @@
 """Module defining data loaders for YAML files."""
+
 import inspect
 import numpy as np
 import os

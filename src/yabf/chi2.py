@@ -1,4 +1,5 @@
 """Defines a Chi2 Likelihood."""
+
 import attr
 import numpy as np
 from scipy import stats
