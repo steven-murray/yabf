@@ -1,4 +1,5 @@
 """Module defining the API for Samplers."""
+
 from __future__ import annotations
 
 import attr

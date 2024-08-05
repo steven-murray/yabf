@@ -1,4 +1,5 @@
 """Module defining parameter objects."""
+
 from __future__ import annotations
 
 import attr
@@ -294,9 +295,11 @@ class Param:
             min=pmin,
             max=pmax,
             fiducial=self.fiducial if self.fiducial is not None else p.fiducial,
-            latex=self.latex
-            if (self.latex != self.name or self.name != p.name)
-            else p.latex,
+            latex=(
+                self.latex
+                if (self.latex != self.name or self.name != p.name)
+                else p.latex
+            ),
             ref=self.ref or attr.NOTHING,
             prior=self.prior or attr.NOTHING,
             determines=self.determines,

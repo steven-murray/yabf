@@ -1,6 +1,7 @@
 """
 Analytic tests of Bayesian Evidence.
 """
+
 import pytest
 
 import attr

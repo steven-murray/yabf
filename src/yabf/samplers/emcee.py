@@ -1,4 +1,5 @@
 """The emcee sampler wrapper into yabf."""
+
 import numpy as np
 from cached_property import cached_property
 from emcee import EnsembleSampler

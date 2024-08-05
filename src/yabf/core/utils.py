@@ -1,4 +1,5 @@
 """Various utility functions."""
+
 import collections
 import numpy as np
 from contextlib import contextmanager
