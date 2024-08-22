@@ -40,7 +40,9 @@ def _construct_params(dct, config_path: Path):
     if isinstance(params, list):
         return params
 
-    params, _ = _read_sub_yaml(params, config_path.parent)
+    if isinstance(params, str | Path):
+        params, _ = _read_sub_yaml(params, config_path.parent)
+
     parameters = []
     for pname, p in params.items():
         _ensure_float(p, "min")

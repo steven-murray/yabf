@@ -35,7 +35,7 @@ dependencies = [
     "pyyaml>=5",
     "rich",
     "scipy",
-    "pypolychord"
+    "emcee"
 ]
 dynamic = ["version"]
 

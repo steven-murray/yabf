@@ -159,7 +159,7 @@ class _LikelihoodInterface(ABC):
         return reduce(
             lambda x, y: x | y,
             (set(cmp.child_provides) for cmp in self._subcomponents),
-            initial=set(),
+            set(),
         )
 
 

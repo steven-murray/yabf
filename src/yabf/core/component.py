@@ -214,13 +214,13 @@ class _ComponentTree(ABC):
                         params[0],
                         determines=fnct.reduce(
                             lambda x, y: x + y,
-                            [list(p.determines) for p in params],
-                            initial=[],
+                            (list(p.determines) for p in params),
+                            [],
                         ),
                         transforms=fnct.reduce(
                             lambda x, y: x + y,
-                            [list(p.transforms) for p in params],
-                            initial=[],
+                            (list(p.transforms) for p in params),
+                            [],
                         ),
                     )
                 )
@@ -510,7 +510,7 @@ class ParameterComponent(_ComponentTree):
             raise NameError(f"not all param names are unique in {self.name}: {names}")
 
         determines = fnct.reduce(
-            lambda x, y: x + y, [list(p.determines) for p in value], initial=[]
+            lambda x, y: x + y, (list(p.determines) for p in value), []
         )
         if len(set(determines)) != len(determines):
             raise ValueError(
