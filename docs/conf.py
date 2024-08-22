@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
@@ -49,9 +48,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"yabf"
-copyright = u"2019, Steven Murray"
-author = u"Steven Murray"
+project = "yabf"
+copyright = "2019, Steven Murray"
+author = "Steven Murray"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -127,7 +126,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass
 # [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "yabf.tex", u"yabf Documentation", u"Steven Murray", "manual")
+    (master_doc, "yabf.tex", "yabf Documentation", "Steven Murray", "manual")
 ]
 
 
@@ -135,7 +134,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "yabf", u"yabf Documentation", [author], 1)]
+man_pages = [(master_doc, "yabf", "yabf Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------
@@ -147,7 +146,7 @@ texinfo_documents = [
     (
         master_doc,
         "yabf",
-        u"yabf Documentation",
+        "yabf Documentation",
         author,
         "yabf",
         "One line description of project.",

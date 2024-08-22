@@ -1,12 +1,11 @@
 """
 Analytic tests of Bayesian Evidence.
 """
-import pytest
 
 import attr
 import numpy as np
+import pytest
 from scipy import stats
-
 from yabf import Likelihood, Param, Parameter
 from yabf.samplers.polychord import polychord
 

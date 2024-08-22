@@ -1,17 +1,17 @@
 """
 Analytic tests of Bayesian Evidence.
 """
-import pytest
 
 import attr
 import numpy as np
+import pytest
 from pypolychord.output import PolyChordOutput
+from pytest_lazy_fixtures import lf
 from scipy import stats
 from scipy.integrate import quad
-
 from yabf import Likelihood, Param, Parameter
 from yabf.samplers.polychord import polychord
-from pytest_lazy_fixtures import lf
+
 
 @attr.s(frozen=True)
 class Gaussian(Likelihood):
@@ -50,7 +50,7 @@ def get_numerical_evidence(lk):
 
 
 @pytest.mark.parametrize(
-    "lk", (lf("simple_gaussian"), lf("gaussian_proper_unif_prior"))
+    "lk", [lf("simple_gaussian"), lf("gaussian_proper_unif_prior")]
 )
 def test_simple_gaussian_evidence(lk, tmp_path):
     out = tmp_path / "polychord"

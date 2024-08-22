@@ -1,11 +1,12 @@
 """Module defining routines for reading/writing config files."""
+
+import contextlib
 import importlib
 import sys
-import yaml
-from os import path
 from pathlib import Path
+
+import yaml
 from scipy import stats
-from typing import Tuple
 
 from . import utils
 from .component import Component
@@ -15,18 +16,15 @@ from .samplers import Sampler
 
 
 def _absfile(yml, fname):
-    if path.isabs(fname):
+    if Path(fname).is_absolute():
         return fname
-    else:
-        return path.join(path.dirname(path.abspath(yml)), fname)
+    return Path(yml).absolute().parent / fname
 
 
 def _ensure_float(dct, name):
     if name in dct:
-        try:
+        with contextlib.suppress(TypeError):
             dct[name] = float(dct[name])
-        except TypeError:
-            pass
 
 
 def _construct_dist(dct):
@@ -41,9 +39,8 @@ def _construct_params(dct, config_path: Path):
 
     if isinstance(params, list):
         return params
-    elif isinstance(params, str):
-        params, _ = _read_sub_yaml(params, config_path.parent)
 
+    params, _ = _read_sub_yaml(params, config_path.parent)
     parameters = []
     for pname, p in params.items():
         _ensure_float(p, "min")
@@ -80,7 +77,7 @@ def _construct_fiducial(dct):
     return dct.pop("fiducial", {})
 
 
-def _read_sub_yaml(cmp: str, pth: Path) -> Tuple[dict, Path]:
+def _read_sub_yaml(cmp: str, pth: Path) -> tuple[dict, Path]:
     cmp = Path(cmp)
     if not cmp.exists():
         cmp = pth / cmp
@@ -109,19 +106,20 @@ def _construct_components(dct, config_path: Path):
 
 
 def _construct_component(cmp, new_path):
-
     try:
         cls = cmp.pop("class")
-    except KeyError:
-        raise KeyError("Every component requires a key:val pair of class: class_name")
+    except KeyError as e:
+        raise KeyError(
+            "Every component requires a key:val pair of class: class_name"
+        ) from e
 
     try:
         cls = Component._plugins[cls]
-    except KeyError:
+    except KeyError as e:
         raise ImportError(
             f"The component '{cmp['name']}' is not importable. Ensure you "
             "have set the correct import_paths and external_modules"
-        )
+        ) from e
 
     params = _construct_params(cmp, new_path)
     derived = _construct_derived(cmp)
@@ -156,16 +154,18 @@ def _construct_likelihoods(config, config_path: Path, ignore_data=False):
 def _construct_likelihood(lk: dict, config_path: Path, ignore_data=False):
     try:
         likelihood = lk.pop("class")
-    except KeyError:
-        raise KeyError("Every likelihood requires a key:val pair of class: class_name")
+    except KeyError as e:
+        raise KeyError(
+            "Every likelihood requires a key:val pair of class: class_name"
+        ) from e
 
     try:
         cls = Likelihood._plugins[likelihood]
-    except KeyError:
+    except KeyError as e:
         raise ImportError(
             f"The likelihood '{lk['name']}' is not importable. Ensure you "
             "have set the correct import_paths and external_modules"
-        )
+        ) from e
 
     params = _construct_params(lk, config_path)
     derived = _construct_derived(lk)
@@ -224,10 +224,11 @@ def _load_str_or_file(stream):
         else:
             msg = f"""YML file passed has invalid syntax for yabf. {e}"""
 
-        raise Exception(f"Could not load yabf YML. {msg}")
+        raise Exception(f"Could not load yabf YML. {msg}") from e
 
 
 def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=False):
+    """Load a likelihood from a YAML file."""
     config = _load_str_or_file(stream)
 
     if override:
@@ -250,9 +251,9 @@ def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=Fals
     if len(likelihoods) > 1:
         # Need to build a container
         return LikelihoodContainer(name=name, likelihoods=likelihoods)
-    else:
-        # Otherwise just return the only likelihood, which is self-contained.
-        return likelihoods[0]
+
+    # Otherwise just return the only likelihood, which is self-contained.
+    return likelihoods[0]
 
 
 def _construct_sampler(config, likelihood):
@@ -264,6 +265,7 @@ def _construct_sampler(config, likelihood):
 
 
 def load_from_yaml(stream, name=None, override=None, ignore_data=False):
+    """Load a full likelihood and sampling method from a YAML file."""
     config = _load_str_or_file(stream)
     if override:
         config = utils.recursive_update(config, override)

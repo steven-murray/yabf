@@ -1,15 +1,19 @@
 """Framework for likelihoods."""
+
 from __future__ import annotations
 
-import attr
 import collections
 import logging
+from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from copy import deepcopy
+from functools import reduce
+from typing import Any
+
+import attr
 import numpy as np
-from abc import ABC
 from attr import validators
 from cached_property import cached_property
-from copy import deepcopy
-from typing import Any, Dict, Sequence
 
 from . import mpi, utils
 from .component import Component, ParameterComponent, _ComponentTree
@@ -20,6 +24,7 @@ logger = logging.getLogger(__name__)
 class _LikelihoodInterface(ABC):
     """An abstract base class for likelihoods, defining the methods they must expose."""
 
+    @abstractmethod
     def mock(
         self,
         model=None,
@@ -42,8 +47,8 @@ class _LikelihoodInterface(ABC):
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
-        pass
 
+    @abstractmethod
     def derived_quantities(self, model=None, ctx=None, params=None):
         """Generate specified derived quantities given a set of parameters.
 
@@ -61,8 +66,8 @@ class _LikelihoodInterface(ABC):
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
-        pass
 
+    @abstractmethod
     def logprior(self, params=None):
         """Generate the total logprior for all active parameters.
 
@@ -76,8 +81,8 @@ class _LikelihoodInterface(ABC):
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
-        pass
 
+    @abstractmethod
     def get_ctx(self, params=None):
         """Generate the context, by running all components.
 
@@ -91,8 +96,8 @@ class _LikelihoodInterface(ABC):
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
-        pass
 
+    @abstractmethod
     def logl(self, model=None, ctx=None, params=None):
         """Return the log-likelihood at the given parameters.
 
@@ -110,8 +115,8 @@ class _LikelihoodInterface(ABC):
             values specified by the component itself, or instance-level
             :attr:`fiducial_params`). By default, use all fiducial parameters.
         """
-        pass
 
+    @abstractmethod
     def logp(self, model=None, params=None):
         """Return the log-posterior at the given parameters.
 
@@ -129,6 +134,7 @@ class _LikelihoodInterface(ABC):
         """
         return self.logprior(**params) + self.logl(model, **params)
 
+    @abstractmethod
     def __call__(self, params=None, ctx=None, with_prior: bool = True):
         """Return a tuple of the log-posterior and derived quantities at given params.
 
@@ -146,21 +152,20 @@ class _LikelihoodInterface(ABC):
         with_prior
             Whether to add the prior to the output posterior.
         """
-        pass
 
     @cached_property
     def child_provides(self) -> set[str]:
         """All the provided quantities from this and child components."""
-        return set(
-            sum((list(cmp.child_provides) for cmp in self._subcomponents), start=[])
+        return reduce(
+            lambda x, y: x | y,
+            (set(cmp.child_provides) for cmp in self._subcomponents),
+            initial=set(),
         )
 
 
-def tuplify(x: Any):
-    if hasattr(x, "__len__"):
-        return tuple(x)
-    else:
-        return (x,)
+def tuplify(x: Any) -> tuple:
+    """Convert a value to a tuple."""
+    return tuple(x) if hasattr(x, "__len__") else (x,)
 
 
 @attr.s(frozen=True, kw_only=True)
@@ -217,8 +222,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             # We only want to set the seed for data creation, and then
             # randomize afterwards.
             with utils.seed_as(self._data_seed):
-                data = self.mock()
-            return data
+                return self.mock()
 
         return self._data
 
@@ -363,6 +367,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         return dquants
 
     def logprior(self, params=None):
+        """Compute the log prior."""
         # This can be called in non-active mode, it will just return zero.
         params = self._fill_params(params, transform=False)
 
@@ -393,6 +398,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         return ctx
 
     def logl(self, model=None, ctx=None, ignore_components=None, params=None):
+        """Compute the log likelihood."""
         model, _, params = self._get_model_ctx_params(
             params, model, ctx, ignore_components
         )
@@ -404,6 +410,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
         return self.lnl(model, **top_level_params)
 
     def logp(self, model=None, ctx=None, ignore_components=None, params=None):
+        """Compute the log posterior."""
         untrans_params = self._fill_params(params, transform=False)
         return self.logprior(untrans_params) + self.logl(
             model=model, ctx=ctx, ignore_components=ignore_components, params=params
@@ -412,6 +419,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
     def __call__(
         self, params=None, ctx=None, ignore_components=None, with_prior: bool = True
     ):
+        """Compute the log-posterior of the model given parameters."""
         if params is None:
             params = {}
         transformed_params = self._fill_params(params)
@@ -436,6 +444,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
 
     @cached_property
     def child_derived(self):
+        """The derived quantities from this and all child components."""
         derived = self.derived
 
         for cmp in self._subcomponents:
@@ -519,6 +528,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         }
 
     def get_logls(self, model=None, ctx=None, params=None):
+        """Compute all log-likelihoods in this container."""
         params = self._fill_params(params)
 
         if model is None:
@@ -530,15 +540,18 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         }
 
     def logl(self, model=None, ctx=None, params=None):
+        """Compute the total log-likelihood."""
         params = self._fill_params(params)
         logls = self.get_logls(model, ctx, params)
         return sum(logls.values())
 
     def logprior(self, params=None):
+        """Compute the log-prior."""
         params = self._fill_params(params)
         return Likelihood.logprior(self, params=params)
 
     def logp(self, model=None, ctx=None, params=None):
+        """Compute the log-posterior."""
         logger.info(f"Params: {params}")
         params = self._fill_params(params)
         logl = self.logl(model, ctx, params)  # this fills the params
@@ -554,13 +567,16 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
 
     @cached_property
     def derived(self):
+        """All derived properties of the inference."""
         return sum((lk.child_derived for lk in self.likelihoods), ())
 
     @property
     def child_derived(self):
+        """All child derived properties of the inference. Alias for derived."""
         return self.derived
 
     def derived_quantities(self, model=None, ctx=None, params=None):
+        """Compute the derived quantities of the model."""
         params = self._fill_params(params)
 
         if ctx is None:
@@ -578,6 +594,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         return dquants
 
     def mock(self, model=None, ctx=None, ignore_components=None, params=None):
+        """Generate mock data according to the model."""
         if ctx is None:
             ctx = self.get_ctx(params)
 
@@ -590,7 +607,7 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         }
 
     def __call__(self, params=None, ctx=None, with_prior: bool = True):
-
+        """Compute the log-posterior or log-likelihood of the model."""
         params = self._fill_params(params)
         if ctx is None:
             ctx = self.get_ctx(params)

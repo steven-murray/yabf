@@ -1,14 +1,16 @@
 """Framework for MCMC Components."""
+
 from __future__ import annotations
 
-import attr
 import collections
-from abc import ABC
-from cached_property import cached_property
+import functools as fnct
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
+
+import attr
+from cached_property import cached_property
 from frozendict import frozendict
-from typing import Dict, List, Optional, Tuple
 
 from . import utils
 from .parameters import Param, Params
@@ -36,6 +38,7 @@ class _ComponentTree(ABC):
     def _in_active_mode(self) -> bool:
         return bool(self.child_active_params)
 
+    @abstractmethod
     @cached_property
     def _subcomponents(self):
         pass
@@ -57,7 +60,7 @@ class _ComponentTree(ABC):
         for loc, cmp in self.child_components.items():
             for i, (c, v) in enumerate(common):
                 if cmp == c:
-                    common[i] = (c, v + (loc,))
+                    common[i] = (c, (*v, loc))
                     break
             else:
                 common.append((cmp, (loc,)))
@@ -66,13 +69,11 @@ class _ComponentTree(ABC):
         common = [(k, v) for k, v in common if len(v) > 1]
 
         # Restrict to top-level
-        common = [
+        return [
             (k, v)
             for k, v in common
             if all(k not in kk.components for kk, vv in common)
         ]
-
-        return common
 
     @cached_property
     def _subcomponent_names(self) -> tuple[str]:
@@ -109,9 +110,7 @@ class _ComponentTree(ABC):
             this = [cmp.name + "." + child for child in cmp.child_base_parameter_dct]
             res.extend(this)
 
-        return OrderedDict(
-            [(loc, param) for loc, param in zip(res, self.child_base_parameters)]
-        )
+        return OrderedDict(list(zip(res, self.child_base_parameters)))
 
     def _loc_to_component(self, loc: str):
         """Take a string loc and return a sub-component based on the string.
@@ -124,10 +123,10 @@ class _ComponentTree(ABC):
 
         try:
             locs = loc.split(".")
-        except AttributeError:
+        except AttributeError as e:
             raise AttributeError(
                 f"Passed a loc that is not a string: {loc}, type={type(loc)}"
-            )
+            ) from e
 
         scs = {cmp.name: cmp for cmp in self._subcomponents}
 
@@ -137,7 +136,7 @@ class _ComponentTree(ABC):
         for cmp in self._subcomponents:
             try:
                 return cmp._loc_to_component(".".join(locs[1:]))
-            except KeyError:
+            except KeyError:  # noqa: PERF203
                 pass
         raise KeyError(f"loc '{loc}' does not exist in any subcomponents")
 
@@ -153,12 +152,10 @@ class _ComponentTree(ABC):
 
         try:
             return cmp.base_parameter_dct[paramname]
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
-                "param '{}' does not exist in component named '{}'".format(
-                    paramname, cmp.name
-                )
-            )
+                f"param '{paramname}' does not exist in component named '{cmp.name}'"
+            ) from e
 
     def get_determination_graph(self):
         p = self.active_params if hasattr(self, "active_params") else ()
@@ -215,8 +212,16 @@ class _ComponentTree(ABC):
                 out.append(
                     attr.evolve(
                         params[0],
-                        determines=sum((list(p.determines) for p in params), []),
-                        transforms=sum((list(p.transforms) for p in params), []),
+                        determines=fnct.reduce(
+                            lambda x, y: x + y,
+                            [list(p.determines) for p in params],
+                            initial=[],
+                        ),
+                        transforms=fnct.reduce(
+                            lambda x, y: x + y,
+                            [list(p.transforms) for p in params],
+                            initial=[],
+                        ),
                     )
                 )
 
@@ -248,10 +253,8 @@ class _ComponentTree(ABC):
         for param in getattr(self, "base_parameters", []):
             if param.name in dct:
                 continue
-            elif param.name in self.fiducial:
-                dct[param.name] = self.fiducial[param.name]
-            else:
-                dct[param.name] = param.fiducial
+
+            dct[param.name] = self.fiducial.get(param.name, param.fiducial)
 
         for cmp in self._subcomponents:
             dct[cmp.name] = cmp._fiducial_params(transform=transform)
@@ -283,13 +286,13 @@ class _ComponentTree(ABC):
             using_list = True
             try:
                 params = self._parameter_list_to_dict(params, transform=transform)
-            except ValueError:
+            except ValueError as e:
                 raise ValueError(
                     f"params must be a dict or list with same length as"
                     f"child_active_params (and in that order). \n"
                     f"Active params: {self.child_active_params.keys()}\n"
                     f"Received Params: {params}"
-                )
+                ) from e
 
         for k, v in list(params.items()):
             # Treat params first as if they are active
@@ -429,10 +432,12 @@ class ParameterComponent(_ComponentTree):
     """
 
     def clone(self, **kwargs):
+        """Clone the instance and evolve parameters."""
         return attr.evolve(self, **kwargs)
 
     @staticmethod
     def param_converter(val):
+        """Converts parameters to Params instances."""
         if isinstance(val, collections.abc.Mapping):
             return Params(tuple(Param(name=k, **v) for k, v in val.items()))
 
@@ -473,14 +478,19 @@ class ParameterComponent(_ComponentTree):
 
         if len(self.base_parameter_dct) != len(self.base_parameters):
             raise ValueError(
-                f"There are two parameters with the same name in {self.__class__.__name__}: "
-                f"{self.base_parameter_dct.keys()}"
+                "There are two parameters with the same name in "
+                f"{self.__class__.__name__}: {self.base_parameter_dct.keys()}"
             )
 
     def _get_subcomponent_names(self):
-        return [self.name] + sum(
-            (cmp._get_subcomponent_names() for cmp in self._subcomponents), []
-        )
+        return [
+            self.name,
+            *fnct.reduce(
+                lambda x, y: x + y,
+                [cmp._get_subcomponent_names() for cmp in self._subcomponents],
+                initial=[],
+            ),
+        ]
 
     @_name.default
     def _name_default(self):
@@ -499,7 +509,9 @@ class ParameterComponent(_ComponentTree):
         if len(set(names)) != len(names):
             raise NameError(f"not all param names are unique in {self.name}: {names}")
 
-        determines = sum((list(p.determines) for p in value), [])
+        determines = fnct.reduce(
+            lambda x, y: x + y, [list(p.determines) for p in value], initial=[]
+        )
         if len(set(determines)) != len(determines):
             raise ValueError(
                 f"different parameters determine the same base parameter "
@@ -598,8 +610,8 @@ class Component(ParameterComponent):
 
         if type(cls.provides) not in [list, set, tuple, cached_property]:
             raise TypeError(
-                f"Component {cls.__name__} must define a list/set/tuple/cached_property "
-                f"for 'provides'. Instead, it is {type(cls.provides)}"
+                f"Component {cls.__name__} must define a list/set/tuple/cached_property"
+                f" for 'provides'. Instead, it is {type(cls.provides)}"
             )
 
         if type(cls.provides) in [list, set, tuple]:
@@ -617,6 +629,7 @@ class Component(ParameterComponent):
             ), f"component {cmp.name} is not a valid Component"
 
     def derived_quantities(self, ctx=None, params=None):
+        """Get the derived quantities."""
         if ctx is None:
             ctx = self()
 
@@ -660,7 +673,6 @@ class Component(ParameterComponent):
         Anything else must be a keyword corresponding to a named parameter of the
         component.
         """
-        pass
 
     def __call__(
         self,
@@ -714,31 +726,31 @@ class Component(ParameterComponent):
                         f"without providing appropriate context"
                     )
                 continue
-            else:
-                try:
-                    ctx.update(
-                        cmp(
-                            params=params[cmp.name],
-                            ctx=ctx,
-                            ignore_components=ignore_components,
-                        )
+
+            try:
+                ctx.update(
+                    cmp(
+                        params=params[cmp.name],
+                        ctx=ctx,
+                        ignore_components=ignore_components,
                     )
-                except KeyError:
-                    raise KeyError(
-                        f"In component '{self.name}' params does not have key "
-                        f"'{cmp.name}'. Available: {list(params.keys())}"
-                    )
+                )
+            except KeyError as e:
+                raise KeyError(
+                    f"In component '{self.name}' params does not have key "
+                    f"'{cmp.name}'. Available: {list(params.keys())}"
+                ) from e
 
         res = self.calculate(ctx, **params)
 
         if res is None:
             if self.provides:
                 raise ValueError(
-                    "component {} says it provides {} but does not return anything "
-                    "from calculate()".format(self.name, self.provides)
+                    f"component {self.name} says it provides {self.provides} but does "
+                    "not return anything from calculate()"
                 )
         else:
-            if type(res) != tuple:
+            if not isinstance(res, tuple):
                 res = (res,)
 
             if len(self.provides) != len(res):
@@ -749,5 +761,5 @@ class Component(ParameterComponent):
                     f"{len(res)}."
                 )
 
-            ctx.update({p: r for p, r in zip(self.provides, res)})
+            ctx.update(dict(zip(self.provides, res)))
         return ctx

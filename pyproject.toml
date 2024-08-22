@@ -78,14 +78,80 @@ norecursedirs = [
 testpaths = "tests"
 
 
-[tool.black]
+[tool.ruff]
 line-length = 88
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.tox
-  | build
-  | dist
-)/
-'''
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = [
+  "UP",   # pyupgrade
+  "E",    # pycodestyle
+  "W",    # pycodestyle warning
+  "F",    # pyflakes
+  "C90",  # mccabe complexity
+  "I",    # isort
+  "N",    # pep8-naming
+  "D",    # docstyle
+  # "ANN"   # type annotations
+  "B",    # bugbear
+  "A",    # builtins
+  "C4",   # comprehensions
+  "DTZ",  # datetime
+  "FA",   # future annotations
+  "PIE",  # flake8-pie
+  "T",    # print statements
+  "PT",   # pytest-style
+  "Q",    # quotes
+  "SIM",  # simplify
+  "PTH",  # use Pathlib
+  "ERA",  # kill commented code
+  "NPY",  # numpy-specific rules
+  "PERF", # performance
+  # "FURB", # refurb
+  "RUF",  # ruff-specific rules
+  "RET",  # return statements
+  "RSE",  # exception raises
+  "TRY201", # verbose raise
+]
+
+ignore = [
+    "DTZ007",   # use %z in strptime
+    "N806",  # Variable name should be lower case. We have some single-letter variables that make more sense to be caps.
+    "A003",  # Class attribute shadows a python builtin -- not much chance of that causing a problem
+    "D401",  # First line should be in imperative mood -- cached_properties don't fit this bill.
+    "D101",  # Missing docstring in public class -- my docstrings are in the __init__ which seems to fail this ?
+    "N815",
+    "N807",  # Allow method names to start and end with __
+    "B008",  # allow setting defaults that call functions
+    "RUF012", # mutable class attributes annotation
+    # The rest should be un-commented when possible...
+    "PTH123",
+    "PT011",
+    "NPY002",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = [
+    "D",  # ignore missing docstring in tests
+    "DTZ",   # ignore datetime in tests
+    "T",     # print statements
+]
+"docs/conf.py" = [
+    "A",  # conf.py can shadow builtins
+    "ERA",
+    "DTZ",
+]
+"src/*/__init__.py" = [
+    "F401", "E402",
+]
+
+
+[tool.ruff.lint.pydocstyle]
+convention = 'numpy'
+property-decorators = [
+    "property",
+    "functools.cached_property",
+    "pytest.fixture"
+]
+[tool.ruff.lint.mccabe]
+max-complexity = 21
