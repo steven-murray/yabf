@@ -5,9 +5,7 @@ import pytest
 
 import attr
 import numpy as np
-from pypolychord.output import PolyChordOutput
 from scipy import stats
-from scipy.integrate import quad, simps
 
 from yabf import Likelihood, Param, Parameter
 from yabf.samplers.polychord import polychord

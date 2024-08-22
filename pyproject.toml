@@ -1,8 +1,81 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.0"]
+requires = ["setuptools>=60", "setuptools_scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+
+[project]
+name = "yabf"
+description = "Yet Another Bayesian Framework"
+readme = "README.rst"
+authors = [
+    {name="Steven Murray", email="steven.murray@sns.it"},
+]
+license = {text="MIT"}
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "cached-property",
+    "click>=6.0",
+    "frozendict",
+    "getdist",
+    "numpy>=1.6.2",
+    "pyyaml>=5",
+    "rich",
+    "scipy",
+    "pypolychord"
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/steven-murray/yabf"
+Issues = "https://github.com/steven-murray/yabf/issues"
+Changelog = "https://github.com/steven-murray/yabf/releases"
+
+[project.scripts]
+yabf = "yabf.cli:main"
+
+[project.optional-dependencies]
+docs = [
+    "Sphinx>=1.7.5",
+    "nbsphinx",
+    "numpydoc>=0.8.0",
+]
+tests = [
+  "coverage",
+  "pytest",
+  "pytest-cov",
+  "pytest-lazy-fixtures",
+  "pypolychord @ git+https://github.com/polychord/polychordlite"
+]
+dev = [
+  "pre-commit",
+  "yabf[docs,tests]"
+]
+
+[tool.pytest.ini_options]
+# Options for py.test:
+# Specify command line options as you would do when invoking py.test directly.
+# e.g. --cov-report html (or xml) for html/xml output or --junitxml junit.xml
+# in order to write a coverage file that can be read by Jenkins.
+addopts = "--cov yabf --verbose --durations=25"
+norecursedirs = [
+    "dist",
+    "build",
+]
+testpaths = "tests"
 
 
 [tool.black]
