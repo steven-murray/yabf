@@ -16,4 +16,3 @@ from .core.configio import (
 from .core.likelihood import Component, Likelihood, LikelihoodContainer
 from .core.parameters import Param, Parameter, ParameterVector, ParamVec
 from .core.samplers import run_map
-from .samplers import emcee, polychord

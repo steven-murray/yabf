@@ -11,7 +11,7 @@ from ..core import mpi
 from ..core.samplers import Sampler
 
 
-class polychord(Sampler):
+class polychord(Sampler):  # noqa: N801
     @staticmethod
     def _flat_array(elements):
         lst = []
@@ -32,6 +32,7 @@ class polychord(Sampler):
 
     @cached_property
     def derived_shapes(self):
+        """The shapes of the derived quantities."""
         shapes = []
         for d in self.__derived_sample:
             if hasattr(d, "shape"):
@@ -45,11 +46,13 @@ class polychord(Sampler):
 
     @cached_property
     def nderived(self):
+        """The number of derived quantities."""
         # this is a bad hack
         return len(self._flat_array(self.__derived_sample))
 
     @cached_property
     def prior(self):
+        """The priors for all parameters, in the format required by polychord."""
         if any(p is None for p in self.likelihood.child_active_params):
             raise ValueError(
                 "All parameters must have proper priors if using polychord!"
@@ -66,6 +69,8 @@ class polychord(Sampler):
 
     @cached_property
     def posterior(self):
+        """The posterior function in the format required by polychord."""
+
         # Don't use the prior, because it's taken care of directly by polychord
         def posterior(p):
             lnl, derived = self.likelihood(p, with_prior=False)
@@ -118,14 +123,16 @@ class polychord(Sampler):
         if "file_root" in kwargs:
             warnings.warn(
                 "file_root was defined in sampler_kwargs, "
-                "but is replaced by output_prefix"
+                "but is replaced by output_prefix",
+                stacklevel=2,
             )
             del kwargs["file_root"]
 
         if "base_dir" in kwargs:
             warnings.warn(
                 "base_dir was defined in sampler_kwargs, "
-                "but is replaced by output_prefix"
+                "but is replaced by output_prefix",
+                stacklevel=2,
             )
             del kwargs["base_dir"]
 
@@ -157,7 +164,7 @@ class polychord(Sampler):
         if mpi.am_single_or_primary_process:
             self._make_paramnames_files(samples)
             # do initialization...
-            samples.posterior
+            _ = samples.posterior
 
         mpi.sync_processes()
         return samples.posterior

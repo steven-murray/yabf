@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""Configuration for docs."""
+# !/usr/bin/env python
 #
 # yabf documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun  9 13:47:02 2017.
@@ -18,12 +18,12 @@
 # relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 #
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, Path(__file__).parent.parent)
 
-import yabf  # noqa
+import yabf
 
 # -- General configuration ---------------------------------------------
 

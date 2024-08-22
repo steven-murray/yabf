@@ -10,7 +10,7 @@ def inactive_lk():
     return SimpleLikelihood(components=[SimpleComponent(name="cmp")])
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def global_lk():
     return SimpleLikelihood(
         components=[SimpleComponent(name="cmp", params=(Param("x", fiducial=1.5),))]

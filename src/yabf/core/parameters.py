@@ -299,8 +299,8 @@ class Param:
             if not (p.min <= tr[0] <= p.max and p.min <= tr[1] <= p.max):
                 raise ValueError(
                     f"The defined support for '{self.name}' ({self._min}-{self._max}) "
-                    f"transforms to {min(tr)-max(tr)}, which is outside the support of "
-                    f"its determined parameter '{p.name}', which has range "
+                    f"transforms to {min(tr) - max(tr)}, which is outside the support "
+                    f"of its determined parameter '{p.name}', which has range "
                     f"{p.min}-{p.max}"
                 )
             pmin, pmax = self._min, self._max

@@ -171,7 +171,7 @@ def run_map(
 
     logger.info(
         f"Took {t2 - t} seconds to minimize. Average "
-        f"{(t2 - t)/objfunc.calls} per likelihood eval."
+        f"{(t2 - t) / objfunc.calls} per likelihood eval."
     )
     return res
 
