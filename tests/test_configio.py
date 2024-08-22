@@ -1,5 +1,4 @@
 import yaml
-
 from yabf import Likelihood, LikelihoodContainer, load_likelihood_from_yaml
 
 

@@ -1,10 +1,10 @@
 """The polychord sampler, wrapped into yabf."""
 
+import warnings
+
 import numpy as np
 import pypolychord as ppc
-import warnings
 from cached_property import cached_property
-from pypolychord.priors import UniformPrior
 from pypolychord.settings import PolyChordSettings
 
 from ..core import mpi

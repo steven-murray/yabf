@@ -1,11 +1,11 @@
 """Console script for yabf."""
 
-import click
 import sys
 import time
-from getdist import plots
-from os import path
 from pathlib import Path
+
+import click
+from getdist import plots
 from rich import box
 from rich.console import Console
 from rich.panel import Panel

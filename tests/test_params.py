@@ -1,5 +1,4 @@
 import pytest
-
 from yabf.core.parameters import Param, Params
 
 
