@@ -10,7 +10,7 @@ from pytest_lazy_fixtures import lf
 from scipy import stats
 from scipy.integrate import quad
 from yabf import Likelihood, Param, Parameter
-from yabf.samplers.polychord import polychord
+from yabf.samplers import polychord
 
 
 @attr.s(frozen=True)

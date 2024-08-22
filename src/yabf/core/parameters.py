@@ -14,7 +14,7 @@ from attr import validators as vld
 from cached_property import cached_property
 from scipy import stats
 
-from .typing import numeric
+from .types import numeric
 
 
 def tuplify(x):
