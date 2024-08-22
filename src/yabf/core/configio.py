@@ -40,7 +40,7 @@ def _construct_params(dct, config_path: Path):
     if isinstance(params, list):
         return params
 
-    if isinstance(params, str | Path):
+    if isinstance(params, (str, Path)):
         params, _ = _read_sub_yaml(params, config_path.parent)
 
     parameters = []
