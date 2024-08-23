@@ -9,10 +9,10 @@ import yaml
 from scipy import stats
 
 from . import utils
+from ._samplers import Sampler
 from .component import Component
 from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
 from .parameters import Param, ParamVec
-from .samplers import Sampler
 
 
 def _absfile(yml, fname):

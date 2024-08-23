@@ -7,8 +7,7 @@ import pypolychord as ppc
 from cached_property import cached_property
 from pypolychord.settings import PolyChordSettings
 
-from ..core import mpi
-from ..core.samplers import Sampler
+from .. import Sampler, mpi
 
 
 class polychord(Sampler):  # noqa: N801
