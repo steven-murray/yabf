@@ -5,7 +5,7 @@ from cached_property import cached_property
 from emcee import EnsembleSampler
 from getdist import MCSamples
 
-from .. import Sampler, run_map
+from ..core._samplers import Sampler, run_map
 
 
 class emcee(Sampler):  # noqa: N801
