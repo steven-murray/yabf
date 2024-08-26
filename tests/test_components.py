@@ -1,14 +1,23 @@
-import pytest
-
 import numpy as np
-
+import pytest
 from yabf import Component, Param
 
-from .shared_resources import SimpleComponent
+from .shared_resources import SimpleComponent, SimpleLikelihood, SuperComponent
 
 
 def test_component_plugin():
     assert SimpleComponent.__name__ in Component._plugins
+
+
+def test_super_component():
+    s = SuperComponent(
+        components=(SimpleComponent(params=("x",)),),
+    )
+    a = SimpleLikelihood(components=(s,))
+
+    ctx = a.get_ctx(params={"x": 3})
+    assert ctx["x2"] == 9
+    assert ctx["x4"] == 81
 
 
 def test_simple_component_properties():
@@ -55,11 +64,11 @@ def test_transform_param():
 
     # this can't work because the min/max for logx are by default -inf/inf
     with pytest.raises(ValueError, match="The defined support for 'logx'"):
-        a.active_params
+        _ = a.active_params
 
     a = SimpleComponent(
         params=[Param("logx", min=-1, max=1, determines=("x",), transforms=(np.exp,))]
     )
     assert a.active_params["logx"].min == -1
     assert a.active_params["logx"].max == 1
-    assert list(a.active_params["logx"].transform(0))[0] == 1
+    assert next(iter(a.active_params["logx"].transform(0))) == 1

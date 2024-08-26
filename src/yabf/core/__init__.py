@@ -1,3 +1,4 @@
 """Core functionality for YABF."""
 
-from . import component, configio, io, likelihood, mpi, parameters, samplers, utils
+from . import _samplers, component, configio, io, likelihood, mpi, parameters, utils
+from ._samplers import Sampler

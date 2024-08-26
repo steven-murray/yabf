@@ -21,5 +21,6 @@ more_than_one_process = mpi_size > 1
 
 
 def sync_processes():
+    """Sync MPI processes."""
     if more_than_one_process:
         mpi_comm.barrier()

@@ -1,16 +1,17 @@
 """The emcee sampler wrapper into yabf."""
+
 import numpy as np
 from cached_property import cached_property
 from emcee import EnsembleSampler
 from getdist import MCSamples
 
-from ..core import mpi
-from ..core.samplers import Sampler, run_map
+from ..core._samplers import Sampler, run_map
 
 
-class emcee(Sampler):
+class emcee(Sampler):  # noqa: N801
     @cached_property
     def nwalkers(self):
+        """The number of walkers to sample with."""
         return self.sampler_kwargs.pop("nwalkers", self.nparams * 2)
 
     def _get_sampler(self, **kwargs):
@@ -38,7 +39,6 @@ class emcee(Sampler):
         refs=None,
         **kwargs,
     ):
-
         if not restart:
             try:
                 sampling_fn(None, **kwargs)

@@ -1,11 +1,15 @@
 """Implementations of popular samplers."""
 
-try:
-    from .emcee import emcee
-except ImportError:
-    pass
+import contextlib
 
-try:
-    from .polychord import polychord
-except ImportError:
-    pass
+__all__ = []
+
+with contextlib.suppress(ImportError):
+    from ._emcee import emcee
+
+    __all__.append("emcee")
+
+with contextlib.suppress(ImportError):
+    from ._polychord import polychord
+
+    __all__.append("polychord")

@@ -1,11 +1,14 @@
 """Various utility functions."""
+
 import collections
-import numpy as np
 from contextlib import contextmanager
+
+import numpy as np
 from frozendict import frozendict
 
 
 def recursive_update(d, u):
+    """Recursively update d with value in u."""
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
             d[k] = recursive_update(d.get(k, {}), v)
@@ -24,19 +27,20 @@ def get_loc_from_dict(dct, loc):
     """
     if loc == "":
         return dict
-    else:
-        locs = loc.split(".")
-        d = dct
-        for ll in locs:
-            try:
-                d = d[ll]
-            except KeyError:
-                raise KeyError(f"loc {loc} does not exist in dict {dct}")
 
-        return d
+    locs = loc.split(".")
+    d = dct
+    try:
+        for ll in locs:
+            d = d[ll]
+    except KeyError as e:
+        raise KeyError(f"loc {loc} does not exist in dict {dct}") from e
+
+    return d
 
 
 def add_loc_to_dict(dct, loc, val, raise_if_not_exist=False):
+    """Add a new loc to a dict."""
     locs = loc.split(".")
     imax = len(locs) - 1
 
@@ -68,6 +72,7 @@ def seed_as(seed):
 
 
 def recursive_frozendict(dct):
+    """Recursively create a frozendict from a dict."""
     for k, v in dct.items():
         if isinstance(v, collections.abc.Mapping):
             dct[k] = recursive_frozendict(v)

@@ -1,13 +1,16 @@
 """Module defining the API for Samplers."""
+
 from __future__ import annotations
 
-import attr
 import logging
+import time
+from pathlib import Path
+
+import attr
 import numpy as np
 import yaml
 from attr.validators import instance_of
 from cached_property import cached_property
-from pathlib import Path
 from scipy import optimize as opt
 from scipy.optimize import curve_fit as _curve_fit
 from scipy.optimize import minimize
@@ -66,14 +69,17 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     @cached_property
     def output_file_prefix(self):
+        """The prefix of the output file."""
         return self._output_prefix.name
 
     @cached_property
     def config_filename(self):
+        """The YAML configuration filename."""
         return self.output_dir / f"{self.output_file_prefix}_config.yml"
 
     @cached_property
     def nparams(self):
+        """The number of parameters in the inference."""
         return self.likelihood.total_active_params
 
     @cached_property
@@ -93,12 +99,13 @@ class Sampler(metaclass=plugin_mount_factory()):
         This could actually be nothing, and the class could rely purely
         on the :func:`_get_sampling_fn` method to create the sampler.
         """
-        return None
+        return
 
     def _get_sampling_fn(self, sampler):
         pass
 
     def sample(self, **kwargs):
+        """Sample from the posterior with this sampler."""
         samples = self._sample(self._sampling_fn, **kwargs)
 
         mpi.sync_processes()
@@ -111,7 +118,6 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     def _samples_to_mcsamples(self, samples):
         """Return posterior samples, with shape (<...>, NPARAMS, NITER)."""
-        pass
 
 
 def run_map(
@@ -125,11 +131,14 @@ def run_map(
     """Run a maximum a-posteriori fit."""
 
     def objfunc(p):
-        logging.debug(f"Params: {p}")
+        objfunc.calls += 1
+        logger.debug(f"Params: {p}")
         out = -likelihood.logp(params=p)
         if np.isnan(out) or np.isinf(out):
-            logging.error(f"For params {p}, likelihood is {out}")
+            logger.error(f"For params {p}, likelihood is {out}")
         return out
+
+    objfunc.calls = 0
 
     if x0 is None:
         x0 = np.array([apar.fiducial for apar in likelihood.child_active_params])
@@ -148,6 +157,7 @@ def run_map(
     elif not bounds:
         bounds = None
 
+    t = time.time()
     if basinhopping_kw is not None:
         kwargs.update(bounds=bounds)
         res = opt.basinhopping(objfunc, x0, minimizer_kwargs=kwargs, **basinhopping_kw)
@@ -157,7 +167,12 @@ def run_map(
         )
     else:
         res = minimize(objfunc, x0, bounds=bounds, **kwargs)
+    t2 = time.time()
 
+    logger.info(
+        f"Took {t2 - t} seconds to minimize. Average "
+        f"{(t2 - t) / objfunc.calls} per likelihood eval."
+    )
     return res
 
 
@@ -191,7 +206,7 @@ def curve_fit(likelihood: Likelihood, x0=None, bounds=None, **kwargs):
     elif not bounds:
         bounds = (-np.inf, np.inf)
 
-    res = _curve_fit(
+    return _curve_fit(
         model,
         xdata=np.linspace(0, 1, len(likelihood.data)),
         ydata=likelihood.data,
@@ -200,5 +215,3 @@ def curve_fit(likelihood: Likelihood, x0=None, bounds=None, **kwargs):
         bounds=bounds,
         **kwargs,
     )
-
-    return res
