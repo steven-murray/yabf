@@ -1,9 +1,8 @@
 import pytest
-
 from yabf.core.parameters import Param, Params
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def params():
     return Params((Param(name="a"), Param("b"), Param("c")))
 

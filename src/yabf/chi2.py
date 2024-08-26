@@ -1,4 +1,5 @@
 """Defines a Chi2 Likelihood."""
+
 import attr
 import numpy as np
 from scipy import stats
@@ -26,20 +27,20 @@ class Chi2:
     sigma = attr.ib(None, kw_only=True)
 
     def get_sigma(self, model, **params):
+        """Get the standard deviation parameter."""
         if self.sigma is not None:
             if "sigma" in self.active_params:
                 # Act as if sigma is important
                 return params["sigma"] * self.sigma
-            else:
-                return self.sigma
-        else:
-            return params["sigma"]
+            return self.sigma
+        return params["sigma"]
 
     def _mock(self, model, **params):
         sigma = self.get_sigma(model, **params)
         return model + np.random.normal(loc=0, scale=sigma, size=len(model))
 
     def lnl(self, model, **params):
+        """Compute the log-likelihood."""
         sigma = self.get_sigma(model, **params)
 
         if isinstance(sigma, (float, int)):
@@ -66,9 +67,11 @@ class Chi2:
 
     # ===== Potential Derived Quantities
     def residual(self, model, ctx, **params):
+        """Compute the residual of the model."""
         return self.data - model
 
     def rms(self, model, ctx, **params):
+        """Compute the RMS of the residuals."""
         return np.sqrt(np.mean((model - self.data) ** 2))
 
 
@@ -90,11 +93,13 @@ class MultiComponentChi2(Chi2, Likelihood):
     positive = attr.ib(True, converter=bool, kw_only=True)
 
     def _reduce(self, ctx, **params):
+        """Reduce the data."""
         models = np.array([v for k, v in ctx.items() if k.endswith(self.kind)])
         scalars = sum(v for k, v in ctx.items() if k.endswith("scalar"))
         return np.sum(models, axis=0) + scalars
 
     def lnl(self, model, **params):
+        """Compute the log-likelihood."""
         # return -inf if any bit of the spectrum is negative
         if self.positive and np.any(model[~np.isnan(model)] <= 0):
             return -np.inf

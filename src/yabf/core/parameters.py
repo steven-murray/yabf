@@ -1,39 +1,44 @@
 """Module defining parameter objects."""
+
 from __future__ import annotations
+
+from collections import OrderedDict
+from collections.abc import Sequence
+from typing import Callable
 
 import attr
 import numpy as np
 import yaml
-from attr import NOTHING
 from attr import converters as cnv
 from attr import validators as vld
 from cached_property import cached_property
-from collections import OrderedDict
 from scipy import stats
-from typing import Callable, List, Sequence, Tuple, Union
 
-from .typing import numeric
+from .types import numeric
 
 
 def tuplify(x):
+    """Convert a value to a tuple."""
     if isinstance(x, str):
         return (x,)
-    else:
-        try:
-            return tuple(x)
-        except TypeError:
-            return (x,)
+
+    try:
+        return tuple(x)
+    except TypeError:
+        return (x,)
 
 
 def texify(name):
+    """Convert a string into tex format."""
     if name.count("_") == 1:
         sub = name.split("_")[1]
-        sub = r"{\rm %s}" % sub
+        sub = rf"{{\rm {sub}}}"
         name = name.split("_")[0] + "_" + sub
     return name
 
 
 def positive(inst, att, val):
+    """Validate that a value is positive."""
     if val <= 0:
         raise ValueError(f"Must be positive! Got {val}")
 
@@ -104,19 +109,21 @@ class ParameterVector:
     def _tuplify(self, val):
         if not hasattr(val, "__len__"):
             return (val,) * self.length
-        else:
-            return tuple(float(v) for v in val)
+        return tuple(float(v) for v in val)
 
     @property
     def fiducial(self) -> tuple[float]:
+        """The fiducial set of parameters."""
         return self._tuplify(self._fiducial)
 
     @property
     def min(self) -> tuple[float]:
+        """The minimum value for each parameter."""
         return self._tuplify(self._min)
 
     @property
     def max(self) -> tuple[float]:
+        """The maximum value for each parameter."""
         return self._tuplify(self._max)
 
     @latex.default
@@ -200,30 +207,33 @@ class Param:
         """The minimum boundary of the prior, helpful for constraints."""
         if self.prior is None:
             return self._min
-        elif isinstance(self.prior, type(stats.uniform(0, 1))):
+
+        if isinstance(self.prior, type(stats.uniform(0, 1))):
             return self.prior.support()[0]
-        else:
-            return -np.inf
+
+        return -np.inf
 
     @property
     def max(self) -> float:
         """The maximum boundary of the prior, helpful for constraints."""
         if self.prior is None:
             return self._max
-        elif isinstance(self.prior, type(stats.uniform(0, 1))):
+        if isinstance(self.prior, type(stats.uniform(0, 1))):
             return self.prior.support()[1]
-        else:
-            return np.inf
+        return np.inf
 
     @cached_property
     def is_alias(self):
+        """Whether this parameter is an alias for another one."""
         return all(pm is None for pm in self.transforms)
 
     @cached_property
     def is_pure_alias(self):
+        """Whether this parameter is an alias, and determines only itself."""
         return self.is_alias and len(self.determines) == 1
 
     def transform(self, val):
+        """Transform the value of the parameter according to its transforms."""
         for pm in self.transforms:
             if pm is None:
                 yield val
@@ -231,6 +241,7 @@ class Param:
                 yield pm(val)
 
     def generate_ref(self, n=1):
+        """Generate a reference value for the parameter."""
         if self.ref is None:
             raise ValueError("Must specify a valid function for ref to generate refs.")
 
@@ -239,10 +250,10 @@ class Param:
         except AttributeError:
             try:
                 ref = self.ref(size=n)
-            except TypeError:
+            except TypeError as e:
                 raise TypeError(
                     f"parameter '{self.name}' does not have a valid value for ref"
-                )
+                ) from e
 
         if np.any(self.prior.pdf(ref) == 0):
             raise ValueError(
@@ -252,15 +263,17 @@ class Param:
         return ref
 
     def logprior(self, val):
+        """Compute the log prior for this parameter."""
         if self.prior is None:
             if self._min > val or self._max < val:
                 return -np.inf
-            else:
-                return 0
+
+            return 0
 
         return self.prior.logpdf(val)
 
     def clone(self, **kwargs):
+        """Clone the parameter, and evolve its attributes."""
         return attr.evolve(self, **kwargs)
 
     def new(self, p: Parameter) -> Param:
@@ -280,12 +293,15 @@ class Param:
             pmax = min(self._max, p.max)
         else:
             tr = (
-                list(self.transform(self._min))[0],
-                list(self.transform(self._max))[0],
+                next(iter(self.transform(self._min))),
+                next(iter(self.transform(self._max))),
             )
             if not (p.min <= tr[0] <= p.max and p.min <= tr[1] <= p.max):
                 raise ValueError(
-                    f"The defined support for '{self.name}' ({self._min}-{self._max}) transforms to {min(tr)-max(tr)}, which is outside the support of its determined parameter '{p.name}', which has range {p.min}-{p.max}"
+                    f"The defined support for '{self.name}' ({self._min}-{self._max}) "
+                    f"transforms to {min(tr) - max(tr)}, which is outside the support "
+                    f"of its determined parameter '{p.name}', which has range "
+                    f"{p.min}-{p.max}"
                 )
             pmin, pmax = self._min, self._max
 
@@ -329,6 +345,8 @@ class Param:
 
 
 def iterable_or_scalar(tp):
+    """Return an attrs validator that validators that a value is iterable or scalar."""
+
     def validator(self, att, val):
         if hasattr(val, "__len__"):
             assert all(isinstance(v, tp) for v in val)
@@ -364,8 +382,8 @@ class ParamVec:
     def _tuplify(self, val):
         if not hasattr(val, "__len__"):
             return (val,) * self.length
-        else:
-            return tuple(float(v) if v is not None else None for v in val)
+
+        return tuple(float(v) if v is not None else None for v in val)
 
     @latex.default
     def _ltx_default(self):
@@ -463,8 +481,7 @@ class Params:
         """
         if item in super().__getattribute__("_prm_dict"):
             return self._prm_dict[item]
-        else:
-            raise AttributeError
+        raise AttributeError
 
     def items(self):
         """Equivalent to ``dict.items()``.

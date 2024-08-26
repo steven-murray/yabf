@@ -1,11 +1,11 @@
 """Console script for yabf."""
 
-import click
 import sys
 import time
-from getdist import plots
-from os import path
 from pathlib import Path
+
+import click
+from getdist import plots
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -104,7 +104,8 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         console.print()
 
         console.print(
-            f"[bold]Active Parameters[/] [blue]({len(likelihood.child_active_params)})[/] "
+            "[bold]Active Parameters[/] [blue]"
+            f"({len(likelihood.child_active_params)})[/] "
         )
         _len = max(len(p.name) for p in likelihood.child_active_params)
         _dlen = max(len(str(p.determines)) for p in likelihood.child_active_params)
@@ -169,7 +170,10 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         tot = time.time() - start
 
         console.print(
-            f":tada: Finished in {tot//3600}:{(tot%3600)//60}:{(tot%3600)%60} (h:m:s) :tada:",
+            (
+                f":tada: Finished in {tot // 3600}:{(tot % 3600) // 60}:"
+                f"{(tot % 3600) % 60} (h:m:s) :tada:",
+            ),
             style="bold green",
         )
     return 0

@@ -1,13 +1,12 @@
 """Module defining data loaders for YAML files."""
+
 import inspect
-import numpy as np
-import os
 import pickle
-import yaml
 from functools import wraps
 from typing import Callable
 
-from .plugin import plugin_mount_factory
+import numpy as np
+import yaml
 
 _DATA_LOADERS = {}
 
@@ -17,6 +16,8 @@ class LoadError(ValueError):
 
 
 def data_loader(tag=None):
+    """A decorator that defines a function that loads data."""
+
     def inner(fnc):
         _DATA_LOADERS[fnc.__name__] = fnc
 
@@ -33,7 +34,7 @@ def data_loader(tag=None):
             except FileNotFoundError:
                 raise
             except Exception as e:
-                raise LoadError(str(e))
+                raise LoadError(str(e)) from e
 
         def yaml_fnc(loader, node):
             return wrapper(node.value)
@@ -47,6 +48,7 @@ def data_loader(tag=None):
 
 
 def get_loader(name) -> Callable:
+    """Get a data loader."""
     if name not in _DATA_LOADERS:
         for fnc in _DATA_LOADERS.values():
             if fnc.tag == name:
@@ -57,23 +59,26 @@ def get_loader(name) -> Callable:
 
 @data_loader("pkl")
 def pickle_loader(data):
+    """A function that loads pickle data."""
     with open(data, "rb") as f:
-        data = pickle.load(f)
-    return data
+        return pickle.load(f)
 
 
 @data_loader()
 def npz_loader(data):
+    """A function that loads npz data."""
     return dict(np.load(data))
 
 
 @data_loader()
 def npy_loader(data):
+    """A function that loads npy data."""
     return np.load(data)
 
 
 @data_loader("load")
 def composite_loader(data):
+    """A function that tries different loaders for a given data file until success."""
     for name, loader in _DATA_LOADERS.items():
         if name == "composite_loader":
             continue
