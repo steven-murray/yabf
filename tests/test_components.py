@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from yabf import Component, Param
 
 from .shared_resources import SimpleComponent, SimpleLikelihood, SuperComponent

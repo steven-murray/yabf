@@ -9,6 +9,7 @@ from pypolychord.output import PolyChordOutput
 from pytest_lazy_fixtures import lf
 from scipy import stats
 from scipy.integrate import quad
+
 from yabf import Likelihood, Param, Parameter
 from yabf.samplers import polychord
 
