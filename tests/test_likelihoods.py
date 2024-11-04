@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from yabf import Param
 
 from .shared_resources import SimpleComponent, SimpleLikelihood
@@ -10,7 +11,7 @@ def inactive_lk():
     return SimpleLikelihood(components=[SimpleComponent(name="cmp")])
 
 
-@pytest.fixture()
+@pytest.fixture
 def global_lk():
     return SimpleLikelihood(
         components=[SimpleComponent(name="cmp", params=(Param("x", fiducial=1.5),))]
