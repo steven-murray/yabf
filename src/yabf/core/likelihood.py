@@ -186,9 +186,9 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
     @components.validator
     def _cmp_valid(self, att, val):
         for cmp in val:
-            assert isinstance(
-                cmp, Component
-            ), f"component {cmp.name} is not a valid Component"
+            assert isinstance(cmp, Component), (
+                f"component {cmp.name} is not a valid Component"
+            )
 
     @cached_property
     def using_mock_data(self):

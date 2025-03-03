@@ -43,12 +43,12 @@ class Sampler(metaclass=plugin_mount_factory()):
 
     @likelihood.validator
     def _lk_vld(self, attribute, val):
-        assert isinstance(
-            val, _LikelihoodInterface
-        ), "likelihood must expose a _LikelihoodInterface"
-        assert (
-            len(val.child_active_params) > 0
-        ), "likelihood does not have any active parameters!"
+        assert isinstance(val, _LikelihoodInterface), (
+            "likelihood must expose a _LikelihoodInterface"
+        )
+        assert len(val.child_active_params) > 0, (
+            "likelihood does not have any active parameters!"
+        )
 
     @_output_prefix.default
     def _op_default(self):
