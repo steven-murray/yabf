@@ -17,8 +17,7 @@ class emcee(Sampler):  # noqa: N801
     def _get_sampler(self, **kwargs):
         # This is bad, but I have to access this before passing kwargs,
         # otherwise nwalkers is passed twice.
-        if "nwalkers" in kwargs:
-            del kwargs["nwalkers"]
+        kwargs.pop("nwalkers", None)
 
         return EnsembleSampler(
             log_prob_fn=self.likelihood,

@@ -545,9 +545,9 @@ class ParameterComponent(_ComponentTree):
 
     def _validate_derived(self, val):
         for d in val:
-            assert callable(d) or (
-                isinstance(d, str) and hasattr(self, d)
-            ), f"{d} is not a valid derived parameter"
+            assert callable(d) or (isinstance(d, str) and hasattr(self, d)), (
+                f"{d} is not a valid derived parameter"
+            )
 
     @cached_property
     def base_parameter_dct(self):
@@ -624,9 +624,9 @@ class Component(ParameterComponent):
     @components.validator
     def _cmp_valid(self, att, val):
         for cmp in val:
-            assert isinstance(
-                cmp, Component
-            ), f"component {cmp.name} is not a valid Component"
+            assert isinstance(cmp, Component), (
+                f"component {cmp.name} is not a valid Component"
+            )
 
     def derived_quantities(self, ctx=None, params=None):
         """Get the derived quantities."""
