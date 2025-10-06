@@ -6,7 +6,7 @@ ci:
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.8.6
+    rev: v0.13.3
     hooks:
       # Run the linter.
       - id: ruff
@@ -16,7 +16,7 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: check-added-large-files
@@ -37,7 +37,7 @@ repos:
       - id: rst-backticks
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.1.0
+    rev: v4.9.1
     hooks:
     - id: commitizen
       stages: [commit-msg]
