@@ -6,7 +6,7 @@ ci:
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.14.7
+    rev: v0.14.10
     hooks:
       # Run the linter.
       - id: ruff
@@ -37,7 +37,7 @@ repos:
       - id: rst-backticks
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.10.0
+    rev: v4.11.1
     hooks:
     - id: commitizen
       stages: [commit-msg]
