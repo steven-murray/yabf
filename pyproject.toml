@@ -12,7 +12,7 @@ authors = [
     {name="Steven Murray", email="steven.murray@sns.it"},
 ]
 license = {text="MIT"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -48,15 +48,15 @@ yabf = "yabf.cli:main"
 
 [dependency-groups]
 docs = [
-    "Sphinx>=1.7.5",
-    "nbsphinx",
-    "numpydoc>=0.8.0",
+    "Sphinx>=9.1.0",
+    "nbsphinx>=0.9.8",
+    "numpydoc>=1.10.0",
 ]
 tests = [
-  "coverage",
-  "pytest",
-  "pytest-cov",
-  "pytest-lazy-fixtures",
+  "coverage>=7.13.5",
+  "pytest>=9.0.3",
+  "pytest-cov>=7.1.0",
+  "pytest-lazy-fixtures>=1.4.0",
 ]
 dev = [
     {include-group = "docs"},
