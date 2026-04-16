@@ -7,13 +7,12 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
-from functools import reduce
+from functools import cached_property, reduce
 from typing import Any
 
 import attr
 import numpy as np
 from attr import validators
-from cached_property import cached_property
 
 from . import mpi, utils
 from .component import Component, ParameterComponent, _ComponentTree

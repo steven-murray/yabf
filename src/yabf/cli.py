@@ -153,7 +153,7 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         mean = mcsamples.getMeans()
         std = mcsamples.getVars()
 
-        for m, s, p in zip(mean, std, mcsamples.getParamNames().names):
+        for m, s, p in zip(mean, std, mcsamples.getParamNames().names, strict=False):
             console.print(f"{p.name}:\t{m:1.3e} +- {s:1.3e}")
 
         if plot and HAVE_MPL:

@@ -1,10 +1,10 @@
 """The polychord sampler, wrapped into yabf."""
 
 import warnings
+from functools import cached_property
 
 import numpy as np
 import pypolychord as ppc
-from cached_property import cached_property
 from pypolychord.settings import PolyChordSettings
 
 from ..core._samplers import Sampler, mpi
@@ -61,7 +61,9 @@ class polychord(Sampler):  # noqa: N801
         def pr(hypercube):
             return [
                 p.prior.ppf(h)  # ppf conerts [0, 1] to the distribution sample
-                for p, h in zip(self.likelihood.child_active_params, hypercube)
+                for p, h in zip(
+                    self.likelihood.child_active_params, hypercube, strict=False
+                )
             ]
 
         return pr
@@ -91,7 +93,9 @@ class polychord(Sampler):  # noqa: N801
     def get_derived_paramnames(self):
         """Create a list of tuples specifying derived parameter names."""
         names = []
-        for name, shape in zip(self.likelihood.child_derived, self.derived_shapes):
+        for name, shape in zip(
+            self.likelihood.child_derived, self.derived_shapes, strict=False
+        ):
             if not isinstance(name, str):
                 name = name.__name__
 

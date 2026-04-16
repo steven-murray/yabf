@@ -46,7 +46,7 @@ jobs:
       - name: Setup Environment
         run: |
           pip install -U coverage
-          pip install .[dev]
+          pip install . --group dev
       - name: Run Tests
         run: |
           python -m pytest --cov-report xml:./coverage.xml
