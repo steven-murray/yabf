@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]  # macos-latest doesn't work for polychord yet...
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@master
         with:
@@ -46,7 +46,7 @@ jobs:
       - name: Setup Environment
         run: |
           pip install -U coverage
-          pip install .[dev]
+          pip install . --group dev
       - name: Run Tests
         run: |
           python -m pytest --cov-report xml:./coverage.xml

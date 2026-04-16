@@ -7,9 +7,9 @@ import functools as fnct
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
+from functools import cached_property
 
 import attr
-from cached_property import cached_property
 from frozendict import frozendict
 
 from . import utils
@@ -110,7 +110,7 @@ class _ComponentTree(ABC):
             this = [cmp.name + "." + child for child in cmp.child_base_parameter_dct]
             res.extend(this)
 
-        return OrderedDict(list(zip(res, self.child_base_parameters)))
+        return OrderedDict(list(zip(res, self.child_base_parameters, strict=True)))
 
     def _loc_to_component(self, loc: str):
         """Take a string loc and return a sub-component based on the string.
@@ -136,7 +136,7 @@ class _ComponentTree(ABC):
         for cmp in self._subcomponents:
             try:
                 return cmp._loc_to_component(".".join(locs[1:]))
-            except KeyError:  # noqa: PERF203
+            except KeyError:
                 pass
         raise KeyError(f"loc '{loc}' does not exist in any subcomponents")
 
@@ -247,7 +247,7 @@ class _ComponentTree(ABC):
                 else:
                     vals = [aparam.fiducial] * len(aparam.determines)
 
-                for name, v in zip(aparam.determines, vals):
+                for name, v in zip(aparam.determines, vals, strict=True):
                     dct = utils.add_loc_to_dict(dct, name, v)
 
         for param in getattr(self, "base_parameters", []):
@@ -301,7 +301,7 @@ class _ComponentTree(ABC):
                 vals = (
                     aparam.transform(v) if transform else [v] * len(aparam.determines)
                 )
-                for name, v in zip(aparam.determines, vals):
+                for name, v in zip(aparam.determines, vals, strict=True):
                     fiducial = utils.add_loc_to_dict(
                         fiducial, name, v, raise_if_not_exist=True
                     )
@@ -338,13 +338,13 @@ class _ComponentTree(ABC):
             )
 
         dct = {}
-        for pvalue, apar in zip(p, self.child_active_params):
+        for pvalue, apar in zip(p, self.child_active_params, strict=True):
             if transform:
                 ptrans = apar.transform(pvalue)
             else:
                 ptrans = [pvalue] * len(apar.determines)
 
-            for loc, ptran in zip(apar.determines, ptrans):
+            for loc, ptran in zip(apar.determines, ptrans, strict=True):
                 dct = utils.add_loc_to_dict(dct, loc, ptran)
         return dct
 
@@ -761,5 +761,5 @@ class Component(ParameterComponent):
                     f"{len(res)}."
                 )
 
-            ctx.update(dict(zip(self.provides, res)))
+            ctx.update(dict(zip(self.provides, res, strict=True)))
         return ctx

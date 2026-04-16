@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 import time
+from functools import cached_property
 from pathlib import Path
 
 import attr
 import numpy as np
 import yaml
 from attr.validators import instance_of
-from cached_property import cached_property
 from scipy import optimize as opt
 from scipy.optimize import curve_fit as _curve_fit
 from scipy.optimize import minimize

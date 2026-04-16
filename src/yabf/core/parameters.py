@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Sequence
-from typing import Callable
+from collections.abc import Callable, Sequence
+from functools import cached_property
 
 import attr
 import numpy as np
 import yaml
 from attr import converters as cnv
 from attr import validators as vld
-from cached_property import cached_property
 from scipy import stats
 
 from .types import numeric

@@ -2,8 +2,8 @@
 
 import inspect
 import pickle
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 import numpy as np
 import yaml
