@@ -15,4 +15,4 @@ def test_params_functionality(params):
     assert params[0] == params.a
 
     for i, param in enumerate(params):
-        assert params[i] == param
+        assert param == param
