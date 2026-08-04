@@ -1,5 +1,6 @@
 """The emcee sampler wrapper into yabf."""
 
+import logging
 from functools import cached_property
 
 import numpy as np
@@ -7,6 +8,8 @@ from emcee import EnsembleSampler
 from getdist import MCSamples
 
 from ..core._samplers import Sampler, run_map
+
+logger = logging.getLogger(__name__)
 
 
 class emcee(Sampler):  # noqa: N801
@@ -43,8 +46,11 @@ class emcee(Sampler):  # noqa: N801
             try:
                 sampling_fn(None, **kwargs)
                 return self._sampler
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                # Restarting without explicit refs can fail for many different
+                # reasons depending on the emcee backend/state; any failure here
+                # just means we fall through to generating fresh refs below.
+                logger.debug("Could not resume sampling without refs: %s", e)
 
         if refs is None:
             if not downhill_first:

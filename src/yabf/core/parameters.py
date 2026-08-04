@@ -435,7 +435,7 @@ class Params:
     def _param_list_vld(self, att, val):
         for v in val:
             if not isinstance(v, Param):
-                raise ValueError("params must be a sequence of Param objects")
+                raise TypeError("params must be a sequence of Param objects")
 
     def __attrs_post_init__(self):
         """Save the parameters in ordered dictionary form."""

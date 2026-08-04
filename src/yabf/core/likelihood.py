@@ -358,7 +358,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             elif callable(d):
                 dquants.append(d(model, ctx, **params))
             else:
-                raise ValueError(f"{d} is not a valid entry for derived")
+                raise TypeError(f"{d} is not a valid entry for derived")
 
         for cmp in self._subcomponents:
             dquants += cmp.derived_quantities(ctx, params[cmp.name])

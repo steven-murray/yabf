@@ -15,6 +15,10 @@ from .likelihood import Likelihood, LikelihoodContainer, _LikelihoodInterface
 from .parameters import Param, ParamVec
 
 
+class YAMLLoadError(ValueError):
+    """Raised when a yabf YAML config (or the file/string it comes from) is invalid."""
+
+
 def _absfile(yml, fname):
     if Path(fname).is_absolute():
         return fname
@@ -226,7 +230,7 @@ def _load_str_or_file(stream):
         else:
             msg = f"""YML file passed has invalid syntax for yabf. {e}"""
 
-        raise Exception(f"Could not load yabf YML. {msg}") from e
+        raise YAMLLoadError(f"Could not load yabf YML. {msg}") from e
 
 
 def load_likelihood_from_yaml(stream, name=None, override=None, ignore_data=False):
