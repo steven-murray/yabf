@@ -45,20 +45,20 @@ def add_loc_to_dict(dct, loc, val, raise_if_not_exist=False):
     imax = len(locs) - 1
 
     this = dct
-    for i, loc in enumerate(locs):
+    for i, key in enumerate(locs):
         if i == imax:
             if isinstance(val, collections.abc.Mapping):
-                this[loc] = recursive_update(this[loc], val)
+                this[key] = recursive_update(this[key], val)
             else:
-                this[loc] = val
+                this[key] = val
 
         else:
-            if loc not in this:
+            if key not in this:
                 if raise_if_not_exist:
-                    raise KeyError(f"{loc} not in dict")
+                    raise KeyError(f"{key} not in dict")
 
-                this[loc] = {}
-            this = this[loc]
+                this[key] = {}
+            this = this[key]
     return dct
 
 

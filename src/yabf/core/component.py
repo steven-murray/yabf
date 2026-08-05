@@ -448,7 +448,7 @@ class ParameterComponent(_ComponentTree):
             elif isinstance(v, Param):
                 out.append(v)
             else:
-                raise ValueError(
+                raise TypeError(
                     f"Elements of params must be str or Param. Got {type(v)}"
                 )
         return Params(tuple(out))
@@ -640,7 +640,7 @@ class Component(ParameterComponent):
             elif callable(d):
                 dquants.append(d(ctx, **params))
             else:
-                raise ValueError(f"{d} is not a valid entry for derived")
+                raise TypeError(f"{d} is not a valid entry for derived")
 
         return dquants
 

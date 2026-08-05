@@ -358,7 +358,7 @@ class Likelihood(ParameterComponent, _LikelihoodInterface):
             elif callable(d):
                 dquants.append(d(model, ctx, **params))
             else:
-                raise ValueError(f"{d} is not a valid entry for derived")
+                raise TypeError(f"{d} is not a valid entry for derived")
 
         for cmp in self._subcomponents:
             dquants += cmp.derived_quantities(ctx, params[cmp.name])
@@ -557,11 +557,11 @@ class LikelihoodContainer(_LikelihoodInterface, _ComponentTree):
         logprior = self.logprior(params)
         logger.info(f"logl: {logl}, prior: {logprior}")
         if np.isnan(logl) or np.isinf(logl):
-            logger.warn(f"Got bad logl: {logl}, with params: {params}")
+            logger.warning(f"Got bad logl: {logl}, with params: {params}")
         if np.isnan(logprior):
-            logger.warn(f"Got bad logprior: {logprior} with params: {params}")
+            logger.warning(f"Got bad logprior: {logprior} with params: {params}")
         if np.isinf(logprior):
-            logger.warn(f"prior out of bounds for params: {params}")
+            logger.warning(f"prior out of bounds for params: {params}")
         return logl + logprior
 
     @cached_property

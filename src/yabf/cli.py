@@ -138,7 +138,10 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
 
         try:
             gr = mcsamples.getGelmanRubin()
-        except Exception:
+        except Exception:  # noqa: BLE001
+            # getdist's getGelmanRubin() can raise a variety of numerical/internal
+            # errors depending on the chain content; this is just a diagnostic
+            # printout, so fall back gracefully rather than crashing the CLI.
             gr = "unavailable"
 
         console.print("Gelman-Rubin Statistic: ", gr)
@@ -170,10 +173,8 @@ def main(yaml_file, plot, sampler_file, write, direc, label, plot_format):
         tot = time.time() - start
 
         console.print(
-            (
-                f":tada: Finished in {tot // 3600}:{(tot % 3600) // 60}:"
-                f"{(tot % 3600) % 60} (h:m:s) :tada:",
-            ),
+            f":tada: Finished in {tot // 3600}:{(tot % 3600) // 60}:"
+            f"{(tot % 3600) % 60} (h:m:s) :tada:",
             style="bold green",
         )
     return 0

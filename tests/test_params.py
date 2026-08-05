@@ -15,4 +15,6 @@ def test_params_functionality(params):
     assert params[0] == params.a
 
     for i, param in enumerate(params):
-        assert params[i] == param
+        # Deliberately re-index rather than comparing `param` to itself: this
+        # checks that __getitem__ ordering agrees with __iter__ ordering.
+        assert params[i] == param  # noqa: PLR1736
